@@ -63,7 +63,7 @@ Usage
     'http://haltalk.herokuapp.com'
     
 Defaults
--------------------
+--------
 
 Any additional keyword params passed in to the HalEasy constructor are automatically passed through to the
 requests.Session.send() method.  Default values are provided for the HTTP method (GET) and the Accept and Content-Type
@@ -80,6 +80,6 @@ To override these more generally, you should subclass HALEasy and provide new de
 
     >>> h = MyHALEasy('http://haltalk.herokuapp.com/')
     
-    
+
    
     
