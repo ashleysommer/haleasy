@@ -44,20 +44,26 @@ class HALEasy(object):
         """
         if data is not None and not isinstance(data, basestring):
             data = json.dumps(data)
-        if not headers:
-            headers = cls.DEFAULT_HEADERS
-        if not method:
-            method = cls.DEFAULT_METHOD
         session = requests.Session()
-        req = requests.Request(method, url, headers=headers, data=data).prepare()
+        req = requests.Request(method or cls.DEFAULT_METHOD,
+                               url,
+                               headers=headers or cls.DEFAULT_HEADERS,
+                               data=data).prepare()
         resp = session.send(req, **kwargs)
         if resp.status_code == 200:
             return resp.text, url
         elif resp.status_code in {201, 303}:
             # 201 and 303 force the next request to be a GET
-            return cls.follow(resp.headers['Location'], data=data, **kwargs)
+            return cls.follow(resp.headers['Location'],
+                              method='GET',
+                              headers=headers or cls.DEFAULT_HEADERS,
+                              **kwargs)
         elif resp.status_code in {301, 302, 307}:
-            return cls.follow(resp.headers['Location'], data=data, **kwargs)
+            return cls.follow(resp.headers['Location'],
+                              method=method or cls.DEFAULT_METHOD,
+                              headers=headers or cls.DEFAULT_HEADERS,
+                              data=data,
+                              **kwargs)
         else:
             resp.raise_for_status()
         # Response wasn't OK, or a handleable redirect, or an error
