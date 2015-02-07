@@ -1,38 +1,8 @@
-import dougrain, dougrain.link
+import dougrain
+import dougrain.link
 import requests
 import json
 import urlparse
-
-JSON_TYPE = 'application/json'
-HAL_TYPE = 'application/hal+json'
-
-
-def follow(url, method='GET', data=None):
-    if data is not None and not isinstance(data, basestring):
-        data = json.dumps(data)
-    headers = {'Accept': JSON_TYPE }
-    if method == 'GET':
-        resp = requests.get(url, data=data, headers=headers)
-    elif method == 'POST':
-        headers['Content-Type'] = JSON_TYPE
-        resp = requests.post(url, data=data, headers=headers)
-    elif method == 'PUT':
-        headers['Content-Type'] = JSON_TYPE
-        resp = requests.put(url, data=data, headers=headers)
-    else:
-        raise ValueError('Unsupported method %s passed to follow' % method)
-    if resp.status_code == 200:
-        return resp.text, url
-    elif resp.status_code in {201, 303}:
-        # 201 and 303 force the next request to be a GET
-        return follow(resp.headers['Location'], method='GET', data=data)
-    elif resp.status_code in {301, 302, 307}:
-        return follow(resp.headers['Location'], method=method, data=data)
-    else:
-        resp.raise_for_status()
-    # Response wasn't OK, or a handleable redirect, or an error
-    raise NotImplementedError('haleasy.follow() does not handle HTTP status code %s.  Headers were %s',
-                              (resp.status_code, resp.headers))
 
 
 def iteritems(item_or_list, item_type):
@@ -45,21 +15,54 @@ def iteritems(item_or_list, item_type):
 
 
 class HALEasy(object):
-    def __init__(self, url, method='GET', data=None, json_str=None):
+    DEFAULT_HEADERS = {'Accept': 'application/json',
+                       'Content-Type': 'application/hal+json'}
+    DEFAULT_METHOD = 'GET'
+
+    def __init__(self, url, data=None, method=None, headers=None, json_str=None, **kwargs):
         """
         If json_str is provided then we don't try to fetch anything over HTTP, we build the doc directly from the str
         """
         if not json_str:
-            json_str, url = follow(url, method=method, data=data)
+            json_str, url = self.follow(url, data=data, method=method, headers=headers, **kwargs)
         self.url = url
         url_parts = urlparse.urlsplit(url)
         self.path = urlparse.urlunsplit(('', '')+(url_parts[2:]))
         self.host = urlparse.urlunsplit(url_parts[:2]+('', '', ''))
         self.doc = dougrain.Document.from_object(json.loads(json_str))
+        my_class = type(self)
         self._link_list = []
         for rel, link_or_list in self.doc.links.iteritems():
             for item in iteritems(link_or_list, dougrain.link.Link):
-                self._link_list.append(HALEasyLink(item, rel=rel, host=self.host))
+                self._link_list.append(HALEasyLink(item, rel=rel, host=self.host, hal_class=my_class))
+
+    @classmethod
+    def follow(cls, url, method=None, headers=None, data=None, **kwargs):
+        """
+        The kwargs will are passed in to the requests.Session.send() function after populating with defaults if needed
+        for HTTP method (GET), and the Accept and Content-Type headers (both application/json)
+        """
+        if data is not None and not isinstance(data, basestring):
+            data = json.dumps(data)
+        if not headers:
+            headers = cls.DEFAULT_HEADERS
+        if not method:
+            method = cls.DEFAULT_METHOD
+        session = requests.Session()
+        req = requests.Request(method, url, headers=headers, data=data).prepare()
+        resp = session.send(req, **kwargs)
+        if resp.status_code == 200:
+            return resp.text, url
+        elif resp.status_code in {201, 303}:
+            # 201 and 303 force the next request to be a GET
+            return cls.follow(resp.headers['Location'], data=data, **kwargs)
+        elif resp.status_code in {301, 302, 307}:
+            return cls.follow(resp.headers['Location'], data=data, **kwargs)
+        else:
+            resp.raise_for_status()
+        # Response wasn't OK, or a handleable redirect, or an error
+        raise NotImplementedError('haleasy.follow() does not handle HTTP status code %s.  Headers were %s',
+                                  (resp.status_code, resp.headers))
 
     def __getitem__(self, item):
         """
@@ -117,14 +120,15 @@ class HALEasyLink(dougrain.link.Link):
     A small wrapper around dougrain.link.Link which adds .host and .path properties, along with a .follow method to
     create HALEasy documents
     """
-    def __init__(self, link, rel=None, host=None):
+    def __init__(self, link, rel=None, host=None, hal_class=None):
         super(HALEasyLink, self).__init__(link.as_object(), None)
         self.o['rel'] = rel
         self.host = host
+        self.hal_class = hal_class
         self.path = self.url()
 
-    def follow(self, method='GET', data=None):
-        return HALEasy(urlparse.urljoin(self.host, self.href), method=method, data=data)
+    def follow(self, method=None, headers=None, data=None):
+        return self.hal_class(urlparse.urljoin(self.host, self.href), method=method, headers=headers, data=data)
 
     def __repr__(self):
         return str(self.o)
