@@ -22,6 +22,10 @@ setup(
                    'Intended Audience :: Developers',
                    'Development Status :: 5 - Production/Stable',
                    'Operating System :: OS Independent'],
-    url = "http://github.com/mattclarkdotnet/haleasy"
+    url = "http://github.com/mattclarkdotnet/haleasy",
+    install_requires = [
+        'dougrain>=0.5.1',
+        'requests>=2.5.1',
+    ]
 
 )
