@@ -3,6 +3,7 @@ import dougrain.link
 import requests
 import json
 import urlparse
+import uritemplate
 
 
 def iteritems(item_or_list, item_type):
@@ -108,7 +109,7 @@ class HALEasy(object):
         H.links(rel='next', profile='video')
         """
         if 'rel' in want_params:
-            want_params['rel'] = self.doc.curies.expand(want_params['rel'])
+            want_params['rel'] = self.doc.expand_curie(want_params['rel'])
         for link in self._link_list:
             if not want_params:
                 yield link
@@ -151,8 +152,11 @@ class HALEasyLink(dougrain.link.Link):
         self.hal_class = hal_class
         self.path = self.url()
 
-    def follow(self, method=None, headers=None, data=None):
-        return self.hal_class(urlparse.urljoin(self.host, self.href), method=method, headers=headers, data=data)
+    def follow(self, method=None, headers=None, data=None, **link_params):
+        url = urlparse.urljoin(self.host, self.href)
+        if link_params:
+            url = uritemplate.expand(url, link_params)
+        return self.hal_class(url, method=method, headers=headers, data=data)
 
     def __getitem__(self, item):
         return self.as_object()[item]

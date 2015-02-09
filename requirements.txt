@@ -2,3 +2,5 @@ dougrain==0.5.1
 mock==1.0.1
 requests==2.5.1
 responses==0.3.0
+uritemplate==0.6
+
