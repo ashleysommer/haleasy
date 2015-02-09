@@ -1,5 +1,4 @@
 dougrain==0.5.1
+mock==1.0.1
 requests==2.5.1
-simplejson==3.6.5
-uritemplate==0.6
-wsgiref==0.1.2
+responses==0.3.0

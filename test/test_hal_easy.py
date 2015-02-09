@@ -1,7 +1,7 @@
 from unittest import TestCase
 from haleasy import HALEasy
 import json
-
+import responses
 
 sample_hal_root = {
     "_links": {
@@ -44,17 +44,32 @@ sample_hal_root = {
     "pTrue": True,
     "pStr": "abc"
 }
-
 sample_hal_root_json = json.dumps(sample_hal_root)
 
+haltalk_root = '{"_links":{"self":{"href":"/"},"curies":[{"name":"ht","href":"http://haltalk.herokuapp.com/rels/{rel}","templated":true}],"ht:users":{"href":"/users"},"ht:signup":{"href":"/signup"},"ht:me":{"href":"/users/{name}","templated":true},"ht:latest-posts":{"href":"/posts/latest"}},"welcome":"Welcome to a haltalk server.","hint_1":"You need an account to post stuff..","hint_2":"Create one by POSTing via the ht:signup link..","hint_3":"Click the orange buttons on the right to make POST requests..","hint_4":"Click the green button to follow a link with a GET request..","hint_5":"Click the book icon to read docs for the link relation."}'
+
+
 class test_hal_easy(TestCase):
-    def test_properties(self):
-        h = HALEasy('', json_str=sample_hal_root_json)
+    @responses.activate
+    def test_properties_mocked(self):
+        responses.add(responses.GET, 'http://api.test_domain/api_root',
+                      body=sample_hal_root_json, status=200,
+                      content_type='application/json')
+
+        h = HALEasy('http://api.test_domain/api_root')
         self.assertEqual(h['p1'], 1)
         self.assertRaises(AttributeError, getattr, h, 'nonexistentproperty')
 
-    def test_links(self):
+    def test_properties_json_str(self):
         h = HALEasy('', json_str=sample_hal_root_json)
+        self.assertEqual(h['p1'], 1)
+
+    @responses.activate
+    def test_links(self):
+        responses.add(responses.GET, 'http://api.test_domain/api_root',
+                      body=sample_hal_root_json, status=200,
+                      content_type='application/json')
+        h = HALEasy('http://api.test_domain/api_root')
 
         self.assertEqual(len(list(h.links(rel='nonexistentrel'))), 0)  # we get a generator yielding nothing
 
@@ -84,4 +99,15 @@ class test_hal_easy(TestCase):
         self.assertEqual(h.link(rel='other:link3').href, "/link3path")  # we get a single object
         self.assertRaises(ValueError, h.link, rel='nonexistentrel')
 
+    @responses.activate
+    def test_haltalk_root(self):
+        responses.add(responses.GET, 'http://haltalk.herokuapp.com.test_domain/',
+              body=haltalk_root, status=200,
+              content_type='application/json')
+
+        h = HALEasy('http://haltalk.herokuapp.com.test_domain')
+        self.assertEqual(h.link(rel=u'self')['href'], u'/')
+        self.assertEqual(h.link(rel=u'http://haltalk.herokuapp.com/rels/users')['href'], u'/users')
+        self.assertEqual(h.link(rel=u'http://haltalk.herokuapp.com/rels/me')['href'], u'/users/{name}')
+        self.assertEqual(h.link(rel=u'http://haltalk.herokuapp.com/rels/me')['templated'], True)
 

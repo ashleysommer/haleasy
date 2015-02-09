@@ -1,6 +1,6 @@
 __author__ = 'Matt Clark'
 
-with open('README.md') as f:
+with open('README.rst') as f:
     long_desc = f.read()
 
 from setuptools import setup

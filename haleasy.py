@@ -13,11 +13,11 @@ def iteritems(item_or_list, item_type):
             for next_item in iteritems(item_or_list_2, item_type):
                 yield next_item
 
-
 class HALEasy(object):
     DEFAULT_HEADERS = {'Accept': 'application/json',
                        'Content-Type': 'application/hal+json'}
     DEFAULT_METHOD = 'GET'
+    SUPPORTED_METHODS = (None, 'GET', 'POST', 'PUT', 'DELETE')
 
     def __init__(self, url, data=None, method=None, headers=None, json_str=None, **kwargs):
         """
@@ -42,6 +42,8 @@ class HALEasy(object):
         The kwargs will are passed in to the requests.Session.send() function after populating with defaults if needed
         for HTTP method (GET), and the Accept and Content-Type headers (both application/json)
         """
+        if method not in cls.SUPPORTED_METHODS:
+            raise NotImplementedError('HTTP method %s is not implemented by the HALEasy client' % method)
         if data is not None and not isinstance(data, basestring):
             data = json.dumps(data)
         session = requests.Session()
@@ -50,24 +52,38 @@ class HALEasy(object):
                                headers=headers or cls.DEFAULT_HEADERS,
                                data=data).prepare()
         resp = session.send(req, **kwargs)
-        if resp.status_code == 200:
+        if resp.status_code in (200, 203):
+            # The server is returning data we should interpret as a HAL document
             return resp.text, url
-        elif resp.status_code in {201, 303}:
-            # 201 and 303 force the next request to be a GET
-            return cls.follow(resp.headers['Location'],
-                              method='GET',
-                              headers=headers or cls.DEFAULT_HEADERS,
-                              **kwargs)
-        elif resp.status_code in {301, 302, 307}:
+        elif resp.status_code in (301, 302, 307, 308):
+            # We should follow a Location header using the original method to find the document.  The absence of such a
+            # header is an error
             return cls.follow(resp.headers['Location'],
                               method=method or cls.DEFAULT_METHOD,
                               headers=headers or cls.DEFAULT_HEADERS,
                               data=data,
                               **kwargs)
+        elif resp.status_code in (201, 303):
+            # We should follow a Location header with a GET to find the document.  The absence of such a header is an
+            # error
+            return cls.follow(resp.headers['Location'],
+                              method='GET',
+                              headers=headers or cls.DEFAULT_HEADERS,
+                              **kwargs)
+        elif resp.status_code in (202, 204, 205):
+            # We should _try_ to follow a Location header with a GET to find the document, but there may not be such a
+            # header, and that is OK.
+            if resp.headers['Location']:
+                return cls.follow(resp.headers['Location'],
+                                  method='GET',
+                                  headers=headers or cls.DEFAULT_HEADERS,
+                                  **kwargs)
+            else:
+                return
         else:
             resp.raise_for_status()
-        # Response wasn't OK, or a handleable redirect, or an error
-        raise NotImplementedError('haleasy.follow() does not handle HTTP status code %s.  Headers were %s',
+        # Response wasn't an error, or a non-error we know how to deal with
+        raise NotImplementedError('haleasy.follow() does not handle HTTP status code %s.  Response headers were %s',
                                   (resp.status_code, resp.headers))
 
     def __getitem__(self, item):
@@ -135,6 +151,10 @@ class HALEasyLink(dougrain.link.Link):
 
     def follow(self, method=None, headers=None, data=None):
         return self.hal_class(urlparse.urljoin(self.host, self.href), method=method, headers=headers, data=data)
+
+    def __getitem__(self, item):
+        return self.as_object()[item]
+
 
     def __repr__(self):
         return str(self.o)
