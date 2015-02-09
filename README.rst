@@ -66,6 +66,8 @@ Usage
     >>> s.host
     'http://haltalk.herokuapp.com'
 
+    >>> u2 = h.link(rel='ht:me').follow(name='7654321')
+
 Defaults
 --------
 
