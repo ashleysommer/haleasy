@@ -13,6 +13,7 @@ def iteritems(item_or_list, item_type):
             for next_item in iteritems(item_or_list_2, item_type):
                 yield next_item
 
+
 class HALEasy(object):
     DEFAULT_HEADERS = {'Accept': 'application/json',
                        'Content-Type': 'application/hal+json'}
@@ -156,7 +157,6 @@ class HALEasyLink(dougrain.link.Link):
 
     def __getitem__(self, item):
         return self.as_object()[item]
-
 
     def __repr__(self):
         return str(self.o)
