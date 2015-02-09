@@ -6,7 +6,7 @@ with open('README.rst') as f:
 from setuptools import setup
 setup(
     name = "HALEasy",
-    version = "0.2.1",
+    version = "0.2.2",
     py_modules = ['haleasy'],
 
     # metadata for upload to PyPI
