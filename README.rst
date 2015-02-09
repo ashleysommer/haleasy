@@ -12,6 +12,11 @@ mind:
 
 It is essential to treat HALEasy and HALEasyLink objects as read only.  The constructors set up several attributes which will be wrong if altered or other parts of the object are altered.
 
+Installation
+------------
+
+pip install haleasy
+
 Usage
 -----
 
