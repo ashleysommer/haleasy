@@ -111,3 +111,15 @@ class test_hal_easy(TestCase):
         self.assertEqual(h.link(rel=u'http://haltalk.herokuapp.com/rels/me')['href'], u'/users/{name}')
         self.assertEqual(h.link(rel=u'http://haltalk.herokuapp.com/rels/me')['templated'], True)
 
+    @responses.activate
+    def test_haltalk_root_with_curies(self):
+        responses.add(responses.GET, 'http://haltalk.herokuapp.com.test_domain/',
+              body=haltalk_root, status=200,
+              content_type='application/json')
+
+        h = HALEasy('http://haltalk.herokuapp.com.test_domain')
+        self.assertEqual(h.link(rel=u'self')['href'], u'/')
+        self.assertEqual(h.link(rel=u'ht:users')['href'], u'/users')
+        self.assertEqual(h.link(rel=u'ht:me')['href'], u'/users/{name}')
+        self.assertEqual(h.link(rel=u'ht:me')['templated'], True)
+

@@ -107,6 +107,8 @@ class HALEasy(object):
         H.links(rel='next')
         H.links(rel='next', profile='video')
         """
+        if 'rel' in want_params:
+            want_params['rel'] = self.doc.curies.expand(want_params['rel'])
         for link in self._link_list:
             if not want_params:
                 yield link
