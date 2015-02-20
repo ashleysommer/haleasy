@@ -5,14 +5,27 @@ import json
 import urlparse
 import uritemplate
 
+import logging
+logging.basicConfig(level="DEBUG")
 
-def iteritems(item_or_list, item_type):
-    if type(item_or_list) == item_type:
-        yield item_or_list
+
+class LinkNotFoundError(Exception):
+    pass
+
+
+def listify(item_or_list):
+    if isinstance(item_or_list, list):
+        return item_or_list
     else:
-        for item_or_list_2 in item_or_list:
-            for next_item in iteritems(item_or_list_2, item_type):
-                yield next_item
+        return [item_or_list]
+
+
+def make_full_url(url, host):
+    if url.startswith('http://'):
+        return url
+    else:
+        return urlparse.urljoin(host, url)
+
 
 class HALEasy(object):
     DEFAULT_HEADERS = {'Accept': 'application/json',
@@ -20,22 +33,51 @@ class HALEasy(object):
     DEFAULT_METHOD = 'GET'
     SUPPORTED_METHODS = (None, 'GET', 'POST', 'PUT', 'DELETE')
 
-    def __init__(self, url, data=None, method=None, headers=None, json_str=None, **kwargs):
+    def __init__(self, url, data=None, method=None, headers=None, json_str=None, is_preview=False, preview=None, **kwargs):
         """
         If json_str is provided then we don't try to fetch anything over HTTP, we build the doc directly from the str
         """
         if not json_str:
             json_str, url = self.follow(url, data=data, method=method, headers=headers, **kwargs)
-        self.url = url
         url_parts = urlparse.urlsplit(url)
         self.path = urlparse.urlunsplit(('', '')+(url_parts[2:]))
         self.host = urlparse.urlunsplit(url_parts[:2]+('', '', ''))
-        self.doc = dougrain.Document.from_object(json.loads(json_str))
-        my_class = type(self)
+        if not self.host:
+            raise ValueError('HAL document must have a full url, but you gave me %s' % url)
+        self.doc = dougrain.Document.from_object(json.loads(json_str), base_uri=self.host)
+        self.is_preview = is_preview
+        self.preview = preview
         self._link_list = []
-        for rel, link_or_list in self.doc.links.iteritems():
-            for item in iteritems(link_or_list, dougrain.link.Link):
-                self._link_list.append(HALEasyLink(item, rel=rel, host=self.host, hal_class=my_class))
+        for rel, links in self.doc.links.iteritems():
+            for link in listify(links):
+                self._link_list.append(HALEasyLink(link.as_object(),
+                                                   base_uri=self.host,
+                                                   rel=rel,
+                                                   hal_class=type(self)))
+        embedded = self.doc.embedded
+        for rel in embedded:
+            preview = HALEasy(make_full_url(embedded[rel].url(), self.host),
+                              json_str=json.dumps(embedded[rel].as_object()),
+                              is_preview=True)
+
+            try:
+                link = self.link(rel=rel, href=preview.link(rel='self').href)
+                link.preview = preview
+            except LinkNotFoundError:
+                new_link = HALEasyLink({'href': preview.link(rel='self').href},
+                                       base_uri=preview.host,
+                                       rel=rel,
+                                       hal_class=type(self),
+                                       preview=preview)
+                self._link_list.append(new_link)
+
+    def _update(self, other):
+        self.path = other.path
+        self.host = other.host
+        self.doc = other.doc
+        self.is_preview = other.is_preview
+        self.preview = other.is_preview
+        self._link_list = other._link_list
 
     @classmethod
     def follow(cls, url, method=None, headers=None, data=None, **kwargs):
@@ -92,7 +134,15 @@ class HALEasy(object):
         To access any properties of the HAL document use H['attrname'].  To access any other methods or properties of
         the dougrain document object use H.doc
         """
-        return self.doc.properties[item]
+        try:
+            return self.doc.properties[item]
+        except KeyError:
+            if self.is_preview:
+                target = self.link(rel='self').follow()
+                self._update(target)
+                return self[item]
+            else:
+                raise
 
     def properties(self):
         return self.doc.properties
@@ -127,36 +177,36 @@ class HALEasy(object):
     def link(self, **want_params):
         """
         Return only the first link matching the want_params dict.  Use this if you are confident there is only
-        one link for a given match, which is quite common for singular rels.  It will raise a ValueError if no matching
+        one link for a given match, which is quite common for singular rels.  It will raise a LinkNotFoundError if no matching
         link is found, to help avoid subtle bugs if the returned value isn't used immediately
         """
         try:
             return self.links(**want_params).next()
         except StopIteration:
-            raise ValueError('no link matching %s found, known links are %s' % (want_params, self._link_list))
+            raise LinkNotFoundError('no link matching %s found, document is %s' % (want_params, self))
 
     def __repr__(self):
-        return str({'url': self.url,
-                    'doc': self.doc.as_object()})
+        return str(self.__dict__)
 
 
 class HALEasyLink(dougrain.link.Link):
     """
-    A small wrapper around dougrain.link.Link which adds .host and .path properties, along with a .follow method to
-    create HALEasy documents
+    A small wrapper around dougrain.link.Link which tracks base_uris, hal_classes and previews, as
+    well as a .follow() method to create the next HAL doc
     """
-    def __init__(self, link, rel=None, host=None, hal_class=None):
-        super(HALEasyLink, self).__init__(link.as_object(), None)
+    def __init__(self, json_object, base_uri=None, rel=None, hal_class=None, preview=None):
+        super(HALEasyLink, self).__init__(json_object, base_uri)
+        self.base_uri = base_uri
         self.o['rel'] = rel
-        self.host = host
         self.hal_class = hal_class
-        self.path = self.url()
+        self.preview = preview
 
     def follow(self, method=None, headers=None, data=None, **link_params):
-        url = urlparse.urljoin(self.host, self.href)
-        if link_params:
-            url = uritemplate.expand(url, link_params)
-        return self.hal_class(url, method=method, headers=headers, data=data)
+        if self.preview:
+            return self.preview
+        else:
+            url = self.url(**link_params)
+            return self.hal_class(url, method=method, headers=headers, data=data, preview=self.preview)
 
     def __getitem__(self, item):
         return self.as_object()[item]
