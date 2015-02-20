@@ -8,7 +8,7 @@ mind:
 -  Reuse existing mature libraries. All HAL processing is done by the dougrain library, all HTTP processing by requests
 -  Easy access to full URL, scheme+host and path+query+fragment of the document
 -  Uniform access to links regardless of whether there is a single one of a kind or more than one. You can always iterate over even single instances of a rel
--  No distinction between embedded and linked resources as far as client usage goes. Although HAL allows embedded to have different representations from the actual resource, this is counter o the use as a ‘caching’ pattern so this client assumes embedded resources are identical to the original resources
+-  No distinction between embedded and linked resources as far as client usage goes. Embeded resources are accessed throught the .links() method just like linked resources are.  If you attempt to access a nonexistent property of an embedded resource, HALEasy will fetch the full representation and try to satisfy the request from that.  If you wish, you can access the embeded version of the properties from the .preview property of the full resource.
 
 It is essential to treat HALEasy and HALEasyLink objects as read only.  The constructors set up several attributes which will be wrong if altered or other parts of the object are altered.
 
