@@ -31,6 +31,9 @@ sample_hal_root = {
             "href": "/link4path/{var}",
             "templated": True
         },
+        "sample_hal_rel4": {
+            "href": "/thing4"
+        },
         "other:link5": [
             {
                 "name": "link5name1",
@@ -53,15 +56,36 @@ sample_hal_root = {
                 }
             },
         },
-        "sample_hal_rel2": {
-            "e": "f",
-            "g": "h",
+        "sample_hal_rel2": [
+            {
+                "e": "f",
+                "g": "h",
+                "_links": {
+                    "self": {
+                        "href": "/thing2",
+                        "name": "thing2"
+                    }
+                }
+            },
+            {
+                "n": "o",
+                "_links": {
+                    "self": {
+                        "href": "/thing3",
+                        "name": "thing3"
+                    }
+                }
+            },
+        ],
+        "sample_hal_rel4": {
+            "p": "q",
             "_links": {
                 "self": {
-                    "href": "/thing2"
+                    "href": "/thing4"
                 }
-            }
+            },
         },
+
     },
     "p1": 1,
     "p2": 2,
@@ -205,19 +229,16 @@ class test_hal_easy(TestCase):
             {
                 "name": "link5name1",
                 "href": "/link5path1",
-                "rel": "other:link5"
             },
             {
                 "name": "link5name2",
                 "href": "/link5path2",
-                "rel": "other:link5"
             }
         ]):
             self.assertDictEqual(d, l[i].as_object())
         self.assertDictEqual(h.link(rel='other:link5').as_object(), {
             "name": "link5name1",
             "href": "/link5path1",
-            "rel": "other:link5"
         })
         self.assertEqual(h.link(rel='other:link3').href, "/link3path")  # we get a single object
         self.assertRaises(LinkNotFoundError, h.link, rel='nonexistentrel')
@@ -295,15 +316,18 @@ class test_hal_easy(TestCase):
             found = False
             logging.debug(h._link_list)
             for l in h._link_list:
-                if l['rel'] == e:
+                if l.rel == e:
                     found = True
                     self.assertTrue(hasattr(l, 'preview'))
                     logging.debug('link has preview %s' % l.preview)
                     self.assertTrue(l.preview.link(rel='self'))
             self.assertTrue(found, msg='could not find rel %s' % e)
-        h2 = h.link(rel="sample_hal_rel1").follow()
-        self.assertEqual(h2['a'], 'b')
-        self.assertTrue(h2.is_preview)
-        self.assertEqual(h2['k'], 'l')
-        self.assertFalse(h2.is_preview)
+        h1 = h.link(rel="sample_hal_rel1").follow()
+        self.assertEqual(h1['a'], 'b')
+        self.assertTrue(h1.is_preview)
+        self.assertEqual(h1['k'], 'l')
+        self.assertFalse(h1.is_preview)
+
+        h2 = h.link(rel="sample_hal_rel2", name="thing2").follow()
+        self.assertEqual(h2['e'], 'f')
 

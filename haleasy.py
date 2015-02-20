@@ -33,6 +33,34 @@ class HALEasy(object):
     DEFAULT_METHOD = 'GET'
     SUPPORTED_METHODS = (None, 'GET', 'POST', 'PUT', 'DELETE')
 
+    def _add_links(self):
+        self._link_list = []
+        for rel, links in self.doc.links.iteritems():
+            for link in listify(links):
+                self._link_list.append(HALEasyLink(link.as_object(),
+                                                   base_uri=self.host,
+                                                   rel=rel,
+                                                   hal_class=type(self)))
+
+    def _add_embedded_as_links(self):
+        for rel in self.doc.embedded:
+            for resource in listify(self.doc.embedded[rel]):
+                logging.debug(resource)
+                preview = HALEasy(make_full_url(resource.url(), self.host),
+                                  json_str=json.dumps(resource.as_object()),
+                                  is_preview=True)
+
+                try:
+                    link = self.link(rel=rel, href=preview.link(rel='self').href)
+                    link.preview = preview
+                except LinkNotFoundError:
+                    new_link = HALEasyLink(preview.link(rel='self').as_object(),
+                                           base_uri=preview.host,
+                                           rel=rel,
+                                           hal_class=type(self),
+                                           preview=preview)
+                    self._link_list.append(new_link)
+
     def __init__(self, url, data=None, method=None, headers=None, json_str=None, is_preview=False, preview=None, **kwargs):
         """
         If json_str is provided then we don't try to fetch anything over HTTP, we build the doc directly from the str
@@ -47,29 +75,8 @@ class HALEasy(object):
         self.doc = dougrain.Document.from_object(json.loads(json_str), base_uri=self.host)
         self.is_preview = is_preview
         self.preview = preview
-        self._link_list = []
-        for rel, links in self.doc.links.iteritems():
-            for link in listify(links):
-                self._link_list.append(HALEasyLink(link.as_object(),
-                                                   base_uri=self.host,
-                                                   rel=rel,
-                                                   hal_class=type(self)))
-        embedded = self.doc.embedded
-        for rel in embedded:
-            preview = HALEasy(make_full_url(embedded[rel].url(), self.host),
-                              json_str=json.dumps(embedded[rel].as_object()),
-                              is_preview=True)
-
-            try:
-                link = self.link(rel=rel, href=preview.link(rel='self').href)
-                link.preview = preview
-            except LinkNotFoundError:
-                new_link = HALEasyLink({'href': preview.link(rel='self').href},
-                                       base_uri=preview.host,
-                                       rel=rel,
-                                       hal_class=type(self),
-                                       preview=preview)
-                self._link_list.append(new_link)
+        self._add_links()
+        self._add_embedded_as_links()
 
     def _update(self, other):
         self.path = other.path
@@ -164,7 +171,7 @@ class HALEasy(object):
             if not want_params:
                 yield link
             else:
-                has_params = link.as_object()
+                has_params = link.as_object_with_rel()
                 for k, v in want_params.iteritems():
                     try:
                         if has_params[k] != v:
@@ -197,9 +204,14 @@ class HALEasyLink(dougrain.link.Link):
     def __init__(self, json_object, base_uri=None, rel=None, hal_class=None, preview=None):
         super(HALEasyLink, self).__init__(json_object, base_uri)
         self.base_uri = base_uri
-        self.o['rel'] = rel
+        self.rel = rel
         self.hal_class = hal_class
         self.preview = preview
+
+    def as_object_with_rel(self):
+        o = {'rel': self.rel}
+        o.update(self.as_object())
+        return o
 
     def follow(self, method=None, headers=None, data=None, **link_params):
         if self.preview:
