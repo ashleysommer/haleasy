@@ -3,11 +3,6 @@ import dougrain.link
 import requests
 import json
 import urlparse
-import uritemplate
-
-import logging
-logging.basicConfig(level="DEBUG")
-
 
 class LinkNotFoundError(Exception):
     pass
@@ -45,7 +40,6 @@ class HALEasy(object):
     def _add_embedded_as_links(self):
         for rel in self.doc.embedded:
             for resource in listify(self.doc.embedded[rel]):
-                logging.debug(resource)
                 preview = HALEasy(make_full_url(resource.url(), self.host),
                                   json_str=json.dumps(resource.as_object()),
                                   is_preview=True)

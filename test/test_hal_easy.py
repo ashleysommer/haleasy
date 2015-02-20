@@ -3,9 +3,6 @@ from haleasy import HALEasy, LinkNotFoundError
 import json
 import responses
 
-import logging
-logging.basicConfig(level="DEBUG")
-
 sample_hal_root = {
     "_links": {
         "self": {
@@ -314,12 +311,10 @@ class test_hal_easy(TestCase):
         self.assertEqual(h.host, 'http://api.test_domain')
         for e in ('sample_hal_rel1', 'sample_hal_rel2'):
             found = False
-            logging.debug(h._link_list)
             for l in h._link_list:
                 if l.rel == e:
                     found = True
                     self.assertTrue(hasattr(l, 'preview'))
-                    logging.debug('link has preview %s' % l.preview)
                     self.assertTrue(l.preview.link(rel='self'))
             self.assertTrue(found, msg='could not find rel %s' % e)
         h1 = h.link(rel="sample_hal_rel1").follow()
