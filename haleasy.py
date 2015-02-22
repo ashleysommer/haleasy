@@ -3,6 +3,7 @@ import dougrain.link
 import requests
 import json
 import urlparse
+import copy
 
 class LinkNotFoundError(Exception):
     pass
@@ -77,7 +78,7 @@ class HALEasy(object):
         self.host = other.host
         self.doc = other.doc
         self.is_preview = other.is_preview
-        self.preview = other.is_preview
+        # we don't update our .preview property
         self._link_list = other._link_list
 
     @classmethod
@@ -140,7 +141,9 @@ class HALEasy(object):
         except KeyError:
             if self.is_preview:
                 target = self.link(rel='self').follow()
+                clone = copy.deepcopy(self)
                 self._update(target)
+                self.preview = clone
                 return self[item]
             else:
                 raise

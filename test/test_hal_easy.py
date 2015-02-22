@@ -318,10 +318,14 @@ class test_hal_easy(TestCase):
                     self.assertTrue(l.preview.link(rel='self'))
             self.assertTrue(found, msg='could not find rel %s' % e)
         h1 = h.link(rel="sample_hal_rel1").follow()
-        self.assertEqual(h1['a'], 'b')
         self.assertTrue(h1.is_preview)
+        self.assertEqual(h1['a'], 'b')
+        self.assertEqual(h1['i'], 'j')
+
         self.assertEqual(h1['k'], 'l')
         self.assertFalse(h1.is_preview)
+        self.assertEqual(h1['i'], 'x')
+        self.assertEqual(h1.preview['i'], 'j')
 
         h2 = h.link(rel="sample_hal_rel2", name="thing2").follow()
         self.assertEqual(h2['e'], 'f')
