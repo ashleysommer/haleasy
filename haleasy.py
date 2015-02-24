@@ -56,25 +56,32 @@ class HALEasy(object):
                                            preview=preview)
                     self._link_list.append(new_link)
 
-    def __init__(self, url, data=None, method=None, headers=None, json_str=None, is_preview=False, preview=None, **kwargs):
-        """
-        If json_str is provided then we don't try to fetch anything over HTTP, we build the doc directly from the str
-        """
+    def __init__(self,
+                 url,
+                 data=None,
+                 method=None,
+                 headers=None,
+                 json_str=None,
+                 is_preview=False,
+                 preview=None,
+                 **kwargs):
+        # If json_str is provided then we use that to build the document, otherwise we follow the url.  Note even when
+        # providing a json_str you also need to provide a URL, because this is a HAL client, not a HAL document parser,
+        # and without a URL it can't always know where to go next
         if not json_str:
             json_str, url = self.follow(url, data=data, method=method, headers=headers, **kwargs)
+        self.url = url
         url_parts = urlparse.urlsplit(url)
-        self.path = urlparse.urlunsplit(('', '')+(url_parts[2:]))
         self.host = urlparse.urlunsplit(url_parts[:2]+('', '', ''))
         if not self.host:
             raise ValueError('HAL document must have a full url, but you gave me %s' % url)
-        self.doc = dougrain.Document.from_object(json.loads(json_str), base_uri=self.host)
+        self.doc = dougrain.Document.from_object(json.loads(json_str), base_uri=url)
         self.is_preview = is_preview
         self.preview = preview
         self._add_links()
         self._add_embedded_as_links()
 
     def _update(self, other):
-        self.path = other.path
         self.host = other.host
         self.doc = other.doc
         self.is_preview = other.is_preview
@@ -147,9 +154,6 @@ class HALEasy(object):
                 return self[item]
             else:
                 raise
-
-    def properties(self):
-        return self.doc.properties
 
     def links(self, **want_params):
         """

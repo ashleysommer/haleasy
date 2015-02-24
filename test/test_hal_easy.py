@@ -195,13 +195,13 @@ class test_hal_easy(TestCase):
 
         h = HALEasy('http://api.test_domain/api_root')
         self.assertEqual(h.host, 'http://api.test_domain')
-        self.assertEqual(h.path, '/api_root')
+        self.assertEqual(h.url, 'http://api.test_domain/api_root')
         self.assertFalse(h.is_preview)
 
     def test_haleasy_object_properties_from_str(self):
         h = HALEasy('http://api.test_domain/api_root', json_str=sample_hal_root_json)
         self.assertEqual(h.host, 'http://api.test_domain')
-        self.assertEqual(h.path, '/api_root')
+        self.assertEqual(h.url, 'http://api.test_domain/api_root')
         self.assertFalse(h.is_preview)
 
     def test_properties_json_str(self):
@@ -281,7 +281,6 @@ class test_hal_easy(TestCase):
 
         h = HALEasy('http://haltalk.herokuapp.com.test_domain')
         user = h.link(rel='ht:signup').follow(method='POST', data={'username': 'aaa', 'password': 'bbb'})
-        self.assertEqual(user.path, '/users/aaa')
         self.assertEqual(user['username'], 'aaa')
 
     @responses.activate
@@ -296,7 +295,6 @@ class test_hal_easy(TestCase):
 
         h = HALEasy('http://haltalk.herokuapp.com.test_domain')
         user = h.link(rel='ht:me').follow(name='aaa')
-        self.assertEqual(user.path, '/users/aaa')
         self.assertEqual(user['username'], 'aaa')
 
     @responses.activate
@@ -326,7 +324,7 @@ class test_hal_easy(TestCase):
         self.assertEqual(h1['i'], 'x')  # value of h1['i'] has changed to 'x'
         self.assertEqual(h1.preview['i'], 'j')  # old value of h1['i'] available here
         h1 = h.link(rel="sample_hal_rel1").follow()
-        
+
         h2 = h.link(rel="sample_hal_rel2", name="thing2").follow()
         self.assertEqual(h2['e'], 'f')
 
