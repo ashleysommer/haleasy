@@ -2,7 +2,11 @@ import dougrain
 import dougrain.link
 import requests
 import json
-import urlparse
+import six
+if six.PY2:
+    import urlparse
+else:
+    import urllib.parse as urlparse
 import copy
 
 class LinkNotFoundError(Exception):
@@ -31,7 +35,7 @@ class HALEasy(object):
 
     def _add_links(self):
         self._link_list = []
-        for rel, links in self.doc.links.iteritems():
+        for rel, links in six.iteritems(self.doc.links):
             for link in listify(links):
                 self._link_list.append(HALEasyLink(link.as_object(),
                                                    base_uri=self.host,
@@ -96,7 +100,7 @@ class HALEasy(object):
         """
         if method not in cls.SUPPORTED_METHODS:
             raise NotImplementedError('HTTP method %s is not implemented by the HALEasy client' % method)
-        if data is not None and not isinstance(data, basestring):
+        if data is not None and not isinstance(data, six.string_types):
             data = json.dumps(data)
         session = requests.Session()
         req = requests.Request(method or cls.DEFAULT_METHOD,
@@ -173,7 +177,7 @@ class HALEasy(object):
                 yield link
             else:
                 has_params = link.as_object_with_rel()
-                for k, v in want_params.iteritems():
+                for k, v in six.iteritems(want_params):
                     try:
                         if has_params[k] != v:
                             break  # the key exists but the values don't match
@@ -189,7 +193,7 @@ class HALEasy(object):
         link is found, to help avoid subtle bugs if the returned value isn't used immediately
         """
         try:
-            return self.links(**want_params).next()
+            return six.next(self.links(**want_params))
         except StopIteration:
             raise LinkNotFoundError('no link matching %s found, document is %s' % (want_params, self))
 
