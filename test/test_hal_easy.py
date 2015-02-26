@@ -6,7 +6,7 @@ import responses
 sample_hal_root = {
     "_links": {
         "self": {
-            "href": "/"
+            "href": "/api_root"
         },
         "curies": [
             {
@@ -195,13 +195,14 @@ class test_hal_easy(TestCase):
 
         h = HALEasy('http://api.test_domain/api_root')
         self.assertEqual(h.host, 'http://api.test_domain')
-        self.assertEqual(h.url, 'http://api.test_domain/api_root')
+        self.assertEqual(h.fetched_from, 'http://api.test_domain/api_root')
+        self.assertEqual(h.doc.url(), 'http://api.test_domain/api_root')
         self.assertFalse(h.is_preview)
 
     def test_haleasy_object_properties_from_str(self):
         h = HALEasy('http://api.test_domain/api_root', json_str=sample_hal_root_json)
         self.assertEqual(h.host, 'http://api.test_domain')
-        self.assertEqual(h.url, 'http://api.test_domain/api_root')
+        self.assertEqual(h.fetched_from, 'http://api.test_domain/api_root')
         self.assertFalse(h.is_preview)
 
     def test_properties_json_str(self):

@@ -74,19 +74,19 @@ class HALEasy(object):
         # and without a URL it can't always know where to go next
         if not json_str:
             json_str, url = self.follow(url, data=data, method=method, headers=headers, **kwargs)
-        self.url = url
-        url_parts = urlparse.urlsplit(url)
-        self.host = urlparse.urlunsplit(url_parts[:2]+('', '', ''))
-        if not self.host:
-            raise ValueError('HAL document must have a full url, but you gave me %s' % url)
         self.doc = dougrain.Document.from_object(json.loads(json_str), base_uri=url)
+        self.fetched_from = url
         self.is_preview = is_preview
         self.preview = preview
         self._add_links()
         self._add_embedded_as_links()
 
+    @property
+    def host(self):
+        parts = urlparse.urlsplit(self.fetched_from)
+        return urlparse.urlunsplit(parts[:2]+('', '', ''))
+
     def _update(self, other):
-        self.host = other.host
         self.doc = other.doc
         self.is_preview = other.is_preview
         # we don't update our .preview property
@@ -135,7 +135,7 @@ class HALEasy(object):
                                   headers=headers or cls.DEFAULT_HEADERS,
                                   **kwargs)
             else:
-                return
+                return resp.text, url
         else:
             resp.raise_for_status()
         # Response wasn't an error, or a non-error we know how to deal with
