@@ -21,6 +21,9 @@ def listify(item_or_list):
 
 
 def make_full_url(url, host):
+    if not url:
+        # this is here to support anonymous resources - the full url for an anonymous resource is ''
+        return ''
     if url.startswith('http://'):
         return url
     else:
@@ -45,15 +48,19 @@ class HALEasy(object):
     def _add_embedded_as_links(self):
         for rel in self.doc.embedded:
             for resource in listify(self.doc.embedded[rel]):
-                preview = HALEasy(make_full_url(resource.url(), self.host),
+                preview_url = make_full_url(resource.url(), self.host)
+                preview = HALEasy(preview_url,
                                   json_str=json.dumps(resource.as_object()),
                                   is_preview=True)
-
                 try:
-                    link = self.link(rel=rel, href=preview.link(rel='self').href)
-                    link.preview = preview
+                    self.link(rel=rel, href=preview.link(rel='self').href).preview = preview
                 except LinkNotFoundError:
-                    new_link = HALEasyLink(preview.link(rel='self').as_object(),
+                    try:
+                        link_obj = preview.link(rel='self').as_object()
+                    except LinkNotFoundError:
+                        # the embedded object has no self link, use a blank href instead
+                        link_obj = { 'href': '' }
+                    new_link = HALEasyLink(link_obj,
                                            base_uri=preview.host,
                                            rel=rel,
                                            hal_class=type(self),
