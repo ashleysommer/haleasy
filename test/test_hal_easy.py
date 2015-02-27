@@ -24,7 +24,8 @@ class test_hal_easy(TestCase):
                 "href": "/link2path"
             },
             "other:link3": {
-                "href": "/link3path"
+                "href": "/link3path",
+                "name": "thing3"
             },
             "link4": {
                 "href": "/link4path/{var}",
@@ -113,6 +114,12 @@ class test_hal_easy(TestCase):
             "href": "/link5path1",
         })
 
+    @responses.activate
+    def test_find_named_rel_by_name(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        l = h.link(name="thing3")
+
+
 class test_haleasy_embedded(TestCase):
     sample_hal_root = {
         "_links": {
@@ -128,9 +135,11 @@ class test_haleasy_embedded(TestCase):
                 "a": "b",
                 "c": "d",
                 "i": "j",
+                "p": "q",
                 "_links": {
                     "self": {
-                        "href": "/thing1"
+                        "href": "/thing1",
+                        "name": "thing1"
                     }
                 },
             },
@@ -171,14 +180,6 @@ class test_haleasy_embedded(TestCase):
                     }
                 },
             },
-            "sample_hal_rel8": {  # an anonymous resource with no link object
-                "p": "q",
-            },
-            "sample_hal_rel9": {  # an anonymous resource with an empty links object
-                "p": "q",
-                "_links": {
-                },
-            },
             # add a failing case where there is a self link but it has no href (doesn't comply with HAL spec)
         },
         "a": "b"
@@ -209,30 +210,93 @@ class test_haleasy_embedded(TestCase):
 
 
     @responses.activate
-    def test_embedded_rels_in_links(self):
+    def test_embedded_objects_exist(self):
         h = HALEasy('http://api.test_domain/api_root')
         self.assertTrue(h.link(rel='sample_hal_rel1').preview)
-        self.assertTrue(h.link(rel='sample_hal_rel2').preview)
-        for e in ('sample_hal_rel1', 'sample_hal_rel2'):
-            found = False
-            for l in h._link_list:
-                if l.rel == e:
-                    found = True
-                    self.assertTrue(hasattr(l, 'preview'))
-                    self.assertTrue(l.preview.link(rel='self'))
-            self.assertTrue(found, msg='could not find rel %s' % e)
+        self.assertTrue(h.link(rel='sample_hal_rel4').preview)
+        self.assertTrue(h.link(rel='sample_hal_rel5').preview)
+
+    @responses.activate
+    def test_embedded_objects_with_same_rel_exist(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        self.assertEqual(len(list(h.links(rel='sample_hal_rel2'))), 2)
+
+    @responses.activate
+    def test_embedded_object_has_preview_true(self):
+        h = HALEasy('http://api.test_domain/api_root')
         h1 = h.link(rel="sample_hal_rel1").follow()
         self.assertTrue(h1.is_preview)  # h1 is an embedded resource
-        self.assertEqual(h1['a'], 'b')
-        self.assertEqual(h1['i'], 'j')  # h1['i'] has value 'j'
+
+    @responses.activate
+    def test_embedded_object_has_preview_true(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        h1 = h.link(rel="sample_hal_rel1").follow()
         self.assertEqual(h1['k'], 'l')  # 'k' not in embedded resource properties, HTTP GET performed
         self.assertFalse(h1.is_preview) # h1 is now not an embedded resource
         self.assertEqual(h1['i'], 'x')  # value of h1['i'] has changed to 'x'
         self.assertEqual(h1.preview['i'], 'j')  # old value of h1['i'] available here
-        h1 = h.link(rel="sample_hal_rel1").follow()
 
+    @responses.activate
+    def test_embedded_rel_with_multiple_objects(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        links = list(h.links(rel="sample_hal_rel2"))
+        self.assertEqual(len(links), 2)
+        h2 = h.link(rel="sample_hal_rel2").follow()
+        self.assertEqual(h2['e'], 'f')
+
+    @responses.activate
+    def test_find_embedded_rel_by_name(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        l = h.link(name="thing1")
+
+
+    @responses.activate
+    def test_find_embedded_rel_by_property_in_self_link_when_no_link_from_resource(self):
+        h = HALEasy('http://api.test_domain/api_root')
         h2 = h.link(rel="sample_hal_rel2", name="thing2").follow()
         self.assertEqual(h2['e'], 'f')
+
+    
+class test_anonymous_embedded(TestCase):
+    sample_hal_root = {
+        "_links": {
+            "self": {
+                "href": "/api_root"
+            },
+        },
+        "_embedded": {
+            "emptylinks": {  # an anonymous resource with an empty links object
+                "p": "q",
+                "_links": {
+                },
+            },
+            "nolinks": {  # an anonymous resource with no link object
+                "p": "q",
+            },
+        },
+    }
+    sample_hal_root_json = json.dumps(sample_hal_root)
+
+    def setUp(self):
+        responses.reset()
+        responses.add(responses.GET, 'http://api.test_domain/api_root',
+                      body=self.sample_hal_root_json, status=200,
+                      content_type='application/json')
+
+    @responses.activate
+    def test_emptylinks(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        l = h.link(rel="emptylinks")
+        h2 = l.follow()
+        self.assertEqual(h2['p'], 'q')
+
+    @responses.activate
+    def test_nolinks(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        l = h.link(rel="nolinks")
+        h2 = l.follow()
+        self.assertEqual(h2['p'], 'q')
+
 
 
 
