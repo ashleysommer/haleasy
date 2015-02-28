@@ -172,15 +172,6 @@ class test_haleasy_embedded(TestCase):
                     }
                 },
             },
-            "sample_hal_rel5": {  # an anonymous resource with a blank href on its self link
-                "p": "q",
-                "_links": {
-                    "self": {
-                        "href": ""
-                    }
-                },
-            },
-            # add a failing case where there is a self link but it has no href (doesn't comply with HAL spec)
         },
         "a": "b"
     }
@@ -214,7 +205,6 @@ class test_haleasy_embedded(TestCase):
         h = HALEasy('http://api.test_domain/api_root')
         self.assertTrue(h.link(rel='sample_hal_rel1').preview)
         self.assertTrue(h.link(rel='sample_hal_rel4').preview)
-        self.assertTrue(h.link(rel='sample_hal_rel5').preview)
 
     @responses.activate
     def test_embedded_objects_with_same_rel_exist(self):
@@ -249,14 +239,13 @@ class test_haleasy_embedded(TestCase):
         h = HALEasy('http://api.test_domain/api_root')
         l = h.link(name="thing1")
 
-
     @responses.activate
     def test_find_embedded_rel_by_property_in_self_link_when_no_link_from_resource(self):
         h = HALEasy('http://api.test_domain/api_root')
         h2 = h.link(rel="sample_hal_rel2", name="thing2").follow()
         self.assertEqual(h2['e'], 'f')
 
-    
+
 class test_anonymous_embedded(TestCase):
     sample_hal_root = {
         "_links": {
@@ -273,9 +262,18 @@ class test_anonymous_embedded(TestCase):
             "nolinks": {  # an anonymous resource with no link object
                 "p": "q",
             },
+            "blank_href": {  # an anonymous resource with a blank href on its self link
+                "p": "q",
+                "_links": {
+                    "self": {
+                        "href": ""
+                    }
+                },
+            },
         },
     }
     sample_hal_root_json = json.dumps(sample_hal_root)
+    # TODO: add a failing case where there is a self link but it has no href (doesn't comply with HAL spec)
 
     def setUp(self):
         responses.reset()
@@ -294,6 +292,13 @@ class test_anonymous_embedded(TestCase):
     def test_nolinks(self):
         h = HALEasy('http://api.test_domain/api_root')
         l = h.link(rel="nolinks")
+        h2 = l.follow()
+        self.assertEqual(h2['p'], 'q')
+
+    @responses.activate
+    def test_blank_href(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        l = h.link(rel="blank_href")
         h2 = l.follow()
         self.assertEqual(h2['p'], 'q')
 
