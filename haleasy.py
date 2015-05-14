@@ -24,20 +24,20 @@ def listify(item_or_list):
         return [item_or_list]
 
 
-def make_full_url(url, host):
+def make_preview_url(urlstring, host):
     '''
     If the given URL has a base (scheme + host) then do nothing, otherwise use the host param to create a full url
-    :param url:
+    :param urlstring:
     :param host:
     :return:
     '''
-    if not url:
+    if not urlstring:
         # this is here to support anonymous resources - the full url for an anonymous resource is ''
         return ''
-    if url.startswith('http://'):
-        return url
+    if urlstring.startswith('http://'):
+        return urlstring
     else:
-        return urlparse.urljoin(host, url)
+        return urlparse.urljoin(host, urlstring)
 
 
 class HALEasy(object):
@@ -62,7 +62,7 @@ class HALEasy(object):
                 logging.debug('embedded resource is %s' % embedded_resource.as_object())
                 if 'self' in embedded_resource.links:
                     has_self_link = True
-                    preview_url = make_full_url(embedded_resource.url(), self.host)
+                    preview_url = make_preview_url(embedded_resource.url(), self.host)
                     self_link_properties = embedded_resource.links['self'].as_object()
                 else:
                     has_self_link = False
