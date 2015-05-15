@@ -12,6 +12,7 @@ import copy
 import logging
 logging.basicConfig(level='DEBUG')
 
+
 class LinkNotFoundError(Exception):
     pass
 
@@ -24,12 +25,12 @@ def listify(item_or_list):
 
 
 def make_preview_url(urlstring, host):
-    '''
+    """
     If the given URL has a base (scheme + host) then do nothing, otherwise use the host param to create a full url
     :param urlstring:
     :param host:
     :return:
-    '''
+    """
     if not urlstring:
         # this is here to support anonymous resources - the full url for an anonymous resource is ''
         return ''

@@ -80,3 +80,13 @@ To override the defaults across instances you should subclass HALHttpClient and 
     ...     DEFAULT_METHOD = 'POST'
     >>> h = HALEasy('http://haltalk.herokuapp.com/', http_client_class=HALHttpClient)
 
+
+HALEasy also has a class property DEFAULT_HTTP_CLIENT_CLASS so you can also subclass HALEasy and override this as well,
+
+    >>> from haleasy import HALEasy, HALHttpClient
+    >>> class MyHttpClient(HALHttpClient):
+    ...     DEFAULT_METHOD = 'POST'
+    >>> class MyHALEasy(HALEasy):
+    ...     DEFAULT_HTTP_CLIENT_CLASS = MyHttpClient
+    >>> h = MyHALEasy('http://haltalk.herokuapp.com/')
+
