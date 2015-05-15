@@ -119,3 +119,20 @@ class TestHalEasyPropertiesAndLinks(TestCase):
         h = HALEasy('http://api.test_domain/api_root')
         l = h.link(name="thing3")
 
+    @responses.activate
+    def test_link_variable_expansion(self):
+        thing4json = json.dumps({
+            "_links": {
+                "self": {
+                    "href": "/link4path/foo"
+                }
+            },
+            "prop1": "val1" })
+        responses.add(responses.GET, 'http://api.test_domain/link4path/foo',
+                      body=thing4json, status=200,
+                      content_type='application/json')
+        h = HALEasy('http://api.test_domain/api_root')
+        h2 = h.link(rel="link4").follow(var="foo")
+        self.assertEqual(h2.fetched_from, 'http://api.test_domain/link4path/foo')
+
+
