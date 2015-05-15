@@ -16,7 +16,7 @@ class TestListify(TestCase):
             self.assertEqual(listify(example), [example, ])
 
 
-class TestMakeFullUrl(TestCase):
+class TestMakePreviewUrl(TestCase):
     def test_untrue_urlstring_returns_empty_string(self):
         for untrue_value in (0, '', None, [], False):
             self.assertEqual(make_preview_url(untrue_value, 'dummyhost.com'), '')
@@ -41,7 +41,7 @@ class TestMakeFullUrl(TestCase):
                              'http://dummyhost.com/{}'.format(teststring))
 
 
-class TestHalEasy(TestCase):
+class TestHalEasyPropertiesAndLinks(TestCase):
     sample_hal_root = {
         "_links": {
             "self": {
@@ -157,7 +157,7 @@ class TestHalEasy(TestCase):
         l = h.link(name="thing3")
 
 
-class test_haleasy_embedded(TestCase):
+class TestHaleasyEmbedded(TestCase):
     sample_hal_root = {
         "_links": {
             "self": {
@@ -283,7 +283,7 @@ class test_haleasy_embedded(TestCase):
         self.assertEqual(h2['e'], 'f')
 
 
-class test_anonymous_embedded(TestCase):
+class TestHaleasyAnonymousEmbedded(TestCase):
     sample_hal_root = {
         "_links": {
             "self": {
@@ -343,7 +343,7 @@ class test_anonymous_embedded(TestCase):
 
 
 
-class test_haleasy_haltalk_mock(TestCase):
+class TestHaleasyHaltalk(TestCase):
     haltalk_root = '''{
         "_links": {
             "self": {
