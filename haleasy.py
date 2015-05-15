@@ -9,9 +9,6 @@ else:
     import urllib.parse as urlparse
 import copy
 
-import logging
-logging.basicConfig(level='DEBUG')
-
 
 class LinkNotFoundError(Exception):
     pass
@@ -52,10 +49,6 @@ class HALHttpClient(object):
         The kwargs will are passed in to the requests.Session.send() function after populating with defaults if needed
         for HTTP method (GET), and the Accept and Content-Type headers (both application/json)
         """
-        # logging.debug("cls: %s" % cls)
-        # logging.debug("hal_class: %s" % hal_class)
-        # logging.debug("url: %s" % url)
-        # logging.debug("method: %s" % method)
         if method not in cls.SUPPORTED_METHODS:
             raise NotImplementedError('HTTP method %s is not implemented by the HALEasy client' % method)
         if data is not None and not isinstance(data, six.string_types):
@@ -73,35 +66,32 @@ class HALHttpClient(object):
             # We should follow a Location header using the original method to find the document.  The absence of such a
             # header is an error
             return cls.http(resp.headers['Location'],
-                             method=method or cls.DEFAULT_METHOD,
-                             headers=headers or cls.DEFAULT_HEADERS,
-                             data=data,
-                             **kwargs)
+                            method=method or cls.DEFAULT_METHOD,
+                            headers=headers or cls.DEFAULT_HEADERS,
+                            data=data,
+                            **kwargs)
         elif resp.status_code in (201, 303):
             # We should follow a Location header with a GET to find the document.  The absence of such a header is an
             # error
-            kwargs.pop('method', None) # make sure not to pass multiple values for arg
-            kwargs.pop('headers', None) # make sure not to pass multiple values for arg
             return cls.http(resp.headers['Location'],
-                             method='GET',
-                             headers=headers or cls.DEFAULT_HEADERS,
-                             **kwargs)
+                            method='GET',
+                            headers=headers or cls.DEFAULT_HEADERS,
+                            **kwargs)
         elif resp.status_code in (202, 204, 205):
             # We should _try_ to follow a Location header with a GET to find the document, but there may not be such a
             # header, and that is OK.
             if resp.headers['Location']:
                 return cls.http(resp.headers['Location'],
-                                 method='GET',
-                                 headers=headers or cls.DEFAULT_HEADERS,
-                                 **kwargs)
+                                method='GET',
+                                headers=headers or cls.DEFAULT_HEADERS,
+                                **kwargs)
             else:
                 return resp.text, url
         else:
             resp.raise_for_status()
         # Response wasn't an error, or a non-error we know how to deal with
-        raise NotImplementedError('HALHttpClient._http() does not handle HTTP status code %s.  Response headers were %s',
+        raise NotImplementedError('HALHttpClient._http() does not handle HTTP status code %s. Response headers were %s',
                                   (resp.status_code, resp.headers))
-
 
 
 class HALEasy(object):
@@ -119,22 +109,18 @@ class HALEasy(object):
 
     def _add_embedded_as_links(self):
         for rel in self.doc.embedded:
-            logging.debug('in rel %s' % rel)
             for embedded_resource in listify(self.doc.embedded[rel]):
-                logging.debug('embedded resource is %s' % embedded_resource.as_object())
                 if 'self' in embedded_resource.links:
                     has_self_link = True
                     preview_url = make_preview_url(embedded_resource.url(), self.host)
                     self_link_properties = embedded_resource.links['self'].as_object()
                 else:
                     has_self_link = False
-                    self_link_properties = {'href': ''}
                     preview_url = ''
-                logging.debug('SLP: %s' % self_link_properties)
+                    self_link_properties = {'href': ''}
                 preview = HALEasy(preview_url,
                                   json_str=json.dumps(embedded_resource.as_object()),
                                   is_preview=True)
-                logging.debug('PREVIEW' % preview)
                 direct_link_found = False
                 if has_self_link:
                     for link in self.links(rel=rel, href=preview.doc.links['self'].href):
