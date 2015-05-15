@@ -9,6 +9,7 @@ else:
     import urllib.parse as urlparse
 import copy
 
+
 class LinkNotFoundError(Exception):
     pass
 
@@ -188,8 +189,8 @@ class HALEasy(object):
 
     def link(self, **want_params):
         """
-        Return only the first link matching the want_params dict.  Use this if you are confident there is only
-        one link for a given match, which is quite common for singular rels.  It will raise a LinkNotFoundError if no matching
+        Return only the first link matching the want_params dict.  Use this if you are confident there is only one link
+        for a given match, which is quite common for singular rels.  It will raise a LinkNotFoundError if no matching
         link is found, to help avoid subtle bugs if the returned value isn't used immediately
         """
         try:
