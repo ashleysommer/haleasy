@@ -9,6 +9,8 @@ else:
     import urllib.parse as urlparse
 import copy
 
+import logging
+logging.basicConfig(level='DEBUG')
 
 class LinkNotFoundError(Exception):
     pass
@@ -21,11 +23,20 @@ def listify(item_or_list):
         return [item_or_list]
 
 
-def make_full_url(url, host):
-    if url.startswith('http://'):
-        return url
+def make_preview_url(urlstring, host):
+    '''
+    If the given URL has a base (scheme + host) then do nothing, otherwise use the host param to create a full url
+    :param urlstring:
+    :param host:
+    :return:
+    '''
+    if not urlstring:
+        # this is here to support anonymous resources - the full url for an anonymous resource is ''
+        return ''
+    if urlstring.startswith('http://'):
+        return urlstring
     else:
-        return urlparse.urljoin(host, url)
+        return urlparse.urljoin(host, urlstring)
 
 
 class HALEasy(object):
@@ -45,16 +56,29 @@ class HALEasy(object):
 
     def _add_embedded_as_links(self):
         for rel in self.doc.embedded:
-            for resource in listify(self.doc.embedded[rel]):
-                preview = HALEasy(make_full_url(resource.url(), self.host),
-                                  json_str=json.dumps(resource.as_object()),
+            logging.debug('in rel %s' % rel)
+            for embedded_resource in listify(self.doc.embedded[rel]):
+                logging.debug('embedded resource is %s' % embedded_resource.as_object())
+                if 'self' in embedded_resource.links:
+                    has_self_link = True
+                    preview_url = make_preview_url(embedded_resource.url(), self.host)
+                    self_link_properties = embedded_resource.links['self'].as_object()
+                else:
+                    has_self_link = False
+                    self_link_properties = {'href': ''}
+                    preview_url = ''
+                logging.debug('SLP: %s' % self_link_properties)
+                preview = HALEasy(preview_url,
+                                  json_str=json.dumps(embedded_resource.as_object()),
                                   is_preview=True)
-
-                try:
-                    link = self.link(rel=rel, href=preview.link(rel='self').href)
-                    link.preview = preview
-                except LinkNotFoundError:
-                    new_link = HALEasyLink(preview.link(rel='self').as_object(),
+                logging.debug('PREVIEW' % preview)
+                direct_link_found = False
+                if has_self_link:
+                    for link in self.links(rel=rel, href=preview.doc.links['self'].href):
+                        link.preview = preview
+                        direct_link_found = True
+                if not direct_link_found:
+                    new_link = HALEasyLink(self_link_properties,
                                            base_uri=preview.host,
                                            rel=rel,
                                            hal_class=type(self),
@@ -75,19 +99,19 @@ class HALEasy(object):
         # and without a URL it can't always know where to go next
         if not json_str:
             json_str, url = self.follow(url, data=data, method=method, headers=headers, **kwargs)
-        self.url = url
-        url_parts = urlparse.urlsplit(url)
-        self.host = urlparse.urlunsplit(url_parts[:2]+('', '', ''))
-        if not self.host:
-            raise ValueError('HAL document must have a full url, but you gave me %s' % url)
         self.doc = dougrain.Document.from_object(json.loads(json_str), base_uri=url)
+        self.fetched_from = url
         self.is_preview = is_preview
         self.preview = preview
         self._add_links()
         self._add_embedded_as_links()
 
+    @property
+    def host(self):
+        parts = urlparse.urlsplit(self.fetched_from)
+        return urlparse.urlunsplit(parts[:2]+('', '', ''))
+
     def _update(self, other):
-        self.host = other.host
         self.doc = other.doc
         self.is_preview = other.is_preview
         # we don't update our .preview property
@@ -136,7 +160,7 @@ class HALEasy(object):
                                   headers=headers or cls.DEFAULT_HEADERS,
                                   **kwargs)
             else:
-                return
+                return resp.text, url
         else:
             resp.raise_for_status()
         # Response wasn't an error, or a non-error we know how to deal with
@@ -230,4 +254,4 @@ class HALEasyLink(dougrain.link.Link):
         return self.as_object()[item]
 
     def __repr__(self):
-        return str(self.o)
+        return str(self.as_object_with_rel())
