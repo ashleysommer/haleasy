@@ -47,7 +47,7 @@ class HALHttpClient(object):
     SUPPORTED_METHODS = (None, 'GET', 'POST', 'PUT', 'DELETE')
 
     @classmethod
-    def _http(cls, url, method=None, headers=None, data=None, **kwargs):
+    def http(cls, url, method=None, headers=None, data=None, **kwargs):
         """
         The kwargs will are passed in to the requests.Session.send() function after populating with defaults if needed
         for HTTP method (GET), and the Accept and Content-Type headers (both application/json)
@@ -72,7 +72,7 @@ class HALHttpClient(object):
         elif resp.status_code in (301, 302, 307, 308):
             # We should follow a Location header using the original method to find the document.  The absence of such a
             # header is an error
-            return cls._http(resp.headers['Location'],
+            return cls.http(resp.headers['Location'],
                              method=method or cls.DEFAULT_METHOD,
                              headers=headers or cls.DEFAULT_HEADERS,
                              data=data,
@@ -82,7 +82,7 @@ class HALHttpClient(object):
             # error
             kwargs.pop('method', None) # make sure not to pass multiple values for arg
             kwargs.pop('headers', None) # make sure not to pass multiple values for arg
-            return cls._http(resp.headers['Location'],
+            return cls.http(resp.headers['Location'],
                              method='GET',
                              headers=headers or cls.DEFAULT_HEADERS,
                              **kwargs)
@@ -90,7 +90,7 @@ class HALHttpClient(object):
             # We should _try_ to follow a Location header with a GET to find the document, but there may not be such a
             # header, and that is OK.
             if resp.headers['Location']:
-                return cls._http(resp.headers['Location'],
+                return cls.http(resp.headers['Location'],
                                  method='GET',
                                  headers=headers or cls.DEFAULT_HEADERS,
                                  **kwargs)
@@ -165,7 +165,7 @@ class HALEasy(object):
         if not http_client_class:
             self.http_client_class = self.DEFAULT_HTTP_CLIENT_CLASS
         if not json_str:
-            json_str, url = self.http_client_class._http(url, data=data, method=method, headers=headers, **kwargs)
+            json_str, url = self.http_client_class.http(url, data=data, method=method, headers=headers, **kwargs)
         self.doc = dougrain.Document.from_object(json.loads(json_str), base_uri=url)
         self.fetched_from = url
         self.is_preview = is_preview
@@ -268,7 +268,7 @@ class HALEasyLink(dougrain.link.Link):
             return self.preview
         else:
             url = self.url(**link_params)
-            body, url = http_client_class._http(url, method=method, headers=headers, data=data, preview=self.preview)
+            body, url = http_client_class.http(url, method=method, headers=headers, data=data, preview=self.preview)
             return self.hal_class(url, body)
 
     def __getitem__(self, item):
