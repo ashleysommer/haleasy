@@ -98,7 +98,7 @@ class HALEasy(object):
         # providing a json_str you also need to provide a URL, because this is a HAL client, not a HAL document parser,
         # and without a URL it can't always know where to go next
         if not json_str:
-            json_str, url = self.follow(url, data=data, method=method, headers=headers, **kwargs)
+            json_str, url = HALEasyLink._http(type(self), url, data=data, method=method, headers=headers, **kwargs)
         self.doc = dougrain.Document.from_object(json.loads(json_str), base_uri=url)
         self.fetched_from = url
         self.is_preview = is_preview
@@ -116,56 +116,6 @@ class HALEasy(object):
         self.is_preview = other.is_preview
         # we don't update our .preview property
         self._link_list = other._link_list
-
-    @classmethod
-    def follow(cls, url, method=None, headers=None, data=None, **kwargs):
-        """
-        The kwargs will are passed in to the requests.Session.send() function after populating with defaults if needed
-        for HTTP method (GET), and the Accept and Content-Type headers (both application/json)
-        """
-        if method not in cls.SUPPORTED_METHODS:
-            raise NotImplementedError('HTTP method %s is not implemented by the HALEasy client' % method)
-        if data is not None and not isinstance(data, six.string_types):
-            data = json.dumps(data)
-        session = requests.Session()
-        req = requests.Request(method or cls.DEFAULT_METHOD,
-                               url,
-                               headers=headers or cls.DEFAULT_HEADERS,
-                               data=data).prepare()
-        resp = session.send(req, **kwargs)
-        if resp.status_code in (200, 203):
-            # The server is returning data we should interpret as a HAL document
-            return resp.text, url
-        elif resp.status_code in (301, 302, 307, 308):
-            # We should follow a Location header using the original method to find the document.  The absence of such a
-            # header is an error
-            return cls.follow(resp.headers['Location'],
-                              method=method or cls.DEFAULT_METHOD,
-                              headers=headers or cls.DEFAULT_HEADERS,
-                              data=data,
-                              **kwargs)
-        elif resp.status_code in (201, 303):
-            # We should follow a Location header with a GET to find the document.  The absence of such a header is an
-            # error
-            return cls.follow(resp.headers['Location'],
-                              method='GET',
-                              headers=headers or cls.DEFAULT_HEADERS,
-                              **kwargs)
-        elif resp.status_code in (202, 204, 205):
-            # We should _try_ to follow a Location header with a GET to find the document, but there may not be such a
-            # header, and that is OK.
-            if resp.headers['Location']:
-                return cls.follow(resp.headers['Location'],
-                                  method='GET',
-                                  headers=headers or cls.DEFAULT_HEADERS,
-                                  **kwargs)
-            else:
-                return resp.text, url
-        else:
-            resp.raise_for_status()
-        # Response wasn't an error, or a non-error we know how to deal with
-        raise NotImplementedError('haleasy.follow() does not handle HTTP status code %s.  Response headers were %s',
-                                  (resp.status_code, resp.headers))
 
     def __getitem__(self, item):
         """
@@ -243,12 +193,70 @@ class HALEasyLink(dougrain.link.Link):
         o.update(self.as_object())
         return o
 
+    @classmethod
+    def _http(cls, hal_class, url, method=None, headers=None, data=None, **kwargs):
+        """
+        The kwargs will are passed in to the requests.Session.send() function after populating with defaults if needed
+        for HTTP method (GET), and the Accept and Content-Type headers (both application/json)
+        """
+        # logging.debug("cls: %s" % cls)
+        # logging.debug("hal_class: %s" % hal_class)
+        # logging.debug("url: %s" % url)
+        # logging.debug("method: %s" % method)
+        if method not in hal_class.SUPPORTED_METHODS:
+            raise NotImplementedError('HTTP method %s is not implemented by the HALEasy client' % method)
+        if data is not None and not isinstance(data, six.string_types):
+            data = json.dumps(data)
+        session = requests.Session()
+        req = requests.Request(method or hal_class.DEFAULT_METHOD,
+                               url,
+                               headers=headers or hal_class.DEFAULT_HEADERS,
+                               data=data).prepare()
+        resp = session.send(req, **kwargs)
+        if resp.status_code in (200, 203):
+            # The server is returning data we should interpret as a HAL document
+            return resp.text, url
+        elif resp.status_code in (301, 302, 307, 308):
+            # We should follow a Location header using the original method to find the document.  The absence of such a
+            # header is an error
+            return cls._http(hal_class,
+                             resp.headers['Location'],
+                             method=method or hal_class.DEFAULT_METHOD,
+                             headers=headers or hal_class.DEFAULT_HEADERS,
+                             data=data,
+                             **kwargs)
+        elif resp.status_code in (201, 303):
+            # We should follow a Location header with a GET to find the document.  The absence of such a header is an
+            # error
+            return cls._http(hal_class,
+                             resp.headers['Location'],
+                              method='GET',
+                              headers=headers or hal_class.DEFAULT_HEADERS,
+                              **kwargs)
+        elif resp.status_code in (202, 204, 205):
+            # We should _try_ to follow a Location header with a GET to find the document, but there may not be such a
+            # header, and that is OK.
+            if resp.headers['Location']:
+                return cls._http(hal_class,
+                                 resp.headers['Location'],
+                                  method='GET',
+                                  headers=headers or hal_class.DEFAULT_HEADERS,
+                                  **kwargs)
+            else:
+                return resp.text, url
+        else:
+            resp.raise_for_status()
+        # Response wasn't an error, or a non-error we know how to deal with
+        raise NotImplementedError('haleasylink.follow() does not handle HTTP status code %s.  Response headers were %s',
+                                  (resp.status_code, resp.headers))
+
     def follow(self, method=None, headers=None, data=None, **link_params):
         if self.preview:
             return self.preview
         else:
             url = self.url(**link_params)
-            return self.hal_class(url, method=method, headers=headers, data=data, preview=self.preview)
+            body, url = HALEasyLink._http(self.hal_class, url, method=method, headers=headers, data=data, preview=self.preview)
+            return self.hal_class(url, body)
 
     def __getitem__(self, item):
         return self.as_object()[item]

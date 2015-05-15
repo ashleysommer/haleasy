@@ -255,7 +255,7 @@ class test_haleasy_embedded(TestCase):
         self.assertTrue(h1.is_preview)  # h1 is an embedded resource
 
     @responses.activate
-    def test_embedded_object_has_preview_true(self):
+    def test_full_object_fetched_when_preview_lacks_property(self):
         h = HALEasy('http://api.test_domain/api_root')
         h1 = h.link(rel="sample_hal_rel1").follow()
         self.assertEqual(h1['k'], 'l')  # 'k' not in embedded resource properties, HTTP GET performed
