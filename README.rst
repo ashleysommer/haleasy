@@ -69,18 +69,14 @@ Usage
 Defaults
 --------
 
-Any additional keyword params passed in to the HalEasy constructor are automatically passed through to the requests.Session.send() method.  Default values are provided for the HTTP method (GET) and the Accept and Content-Type headers (both application/json). However in keeping with the design principle of least surprise, the keyword args provided do not propagate across HALEasy instances.
+Any additional keyword params passed in to the HalEasy constructor are automatically passed through to the requests.Session.send() method.  Default values are provided for the HTTP method (GET) and the Accept and Content-Type headers (both application/json). However in keeping with the design principle of least surprise, the other keyword args provided do not propagate across HALEasy instances.
 
-To override these more generally, you should subclass HALEasy and provide new defaults:
+To override the defaults across instances you should subclass HttpDefaults and provide new values:
 
 ::
 
-    from haleasy import HALEasy
-    class MyHALClass(HALEasy):
-        DEFAULT_HEADERS = {'Accept': 'application/json',
-                           'Content-Type': 'application/hal+json'}
-        DEFAULT_METHOD = 'GET'
-        SUPPORTED_METHODS = (None, 'GET', 'POST', 'PUT', 'DELETE')
-
-    >>> h = MyHALClass('http://haltalk.herokuapp.com/')
+    >>> from haleasy import HALEasy, HttpDefaults
+    >>> class MyDefaults(HttpDefaults):
+    ...     DEFAULT_METHOD = 'POST'
+    >>> h = HALEasy('http://haltalk.herokuapp.com/', httpdefaults=MyDefaults)
 
