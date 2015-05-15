@@ -4,11 +4,9 @@ HALEasy
 A very simple and short HAL client designed with the following goals in
 mind:
 
--  Clear from the code what actions are happening. There are no implicit names or actions so it is always clear to someone reading code that uses it what the class will do.
--  Reuse existing mature libraries. All HAL processing is done by the dougrain library, all HTTP processing by requests
--  Easy access to full URL, scheme+host and path+query+fragment of the document
--  Uniform access to links regardless of whether there is a single one of a kind or more than one. You can always iterate over even single instances of a rel
--  No distinction between embedded and linked resources as far as client usage goes. Embeded resources are accessed throught the .links() method just like linked resources are.  If you attempt to access a nonexistent property of an embedded resource, HALEasy will fetch the full representation and try to satisfy the request from that.  If you wish, you can access the embeded version of the properties from the .preview property of the full resource.
+-  Uniform access to lists of links regardless of whether there is a single one of a kind or more than one. You can always iterate over even single instances of a rel.
+-  Uniform access to links by any property, not just the relation type.
+-  No distinction between embedded and linked resources as far as client usage goes.  Embedded resources are accessed through the .links() method just like linked resources are, but have a .is_preview property with value True.  If you attempt to access a nonexistent property of an embedded resource, HALEasy will fetch the full representation and try to satisfy the request from that.  If you wish, you can use the .preview property of the full resource to check for inconsistencies between the full and embedded resource representations.
 
 It is essential to treat HALEasy and HALEasyLink objects as read only.  The constructors set up several attributes which will be wrong if altered or other parts of the object are altered.
 
