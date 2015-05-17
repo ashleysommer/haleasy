@@ -41,53 +41,75 @@ class HALHttpClient(object):
     DEFAULT_HEADERS = {'Accept': 'application/json',
                        'Content-Type': 'application/hal+json'}
     DEFAULT_METHOD = 'GET'
-    SUPPORTED_METHODS = (None, 'GET', 'POST', 'PUT', 'DELETE')
+    SUPPORTED_METHODS = ('GET', 'POST', 'PUT', 'DELETE')
+    OK_CODES = {200, 203}
+    REDIRECT_WITH_ORIGINAL_METHOD_CODES = {301, 302, 307, 308}
+    REDIRECT_WITH_GET_CODES = {201, 303}
+    MAYBE_REDIRECT_WITH_GET_CODES = {202, 204, 205}
 
     @classmethod
     def request(cls, url, method=None, headers=None, data=None, **kwargs):
         """
-        The kwargs will are passed in to the requests.Session.send() function after populating with defaults if needed
-        for HTTP method (GET), and the Accept and Content-Type headers (both application/json)
+        Public facing request method that does initial setup and sanitisation:
+        * checks and supplies defaults
+        * creates a session object to be used for this chain of requests.
+        * if data is passed as an object instead of a string, JSONifies it
+        * calls protected _request method, which may recurse and omits all the steps above
         """
+        method = method or cls.DEFAULT_METHOD
         if method not in cls.SUPPORTED_METHODS:
             raise NotImplementedError('HTTP method %s is not implemented by the HALEasy client' % method)
+
+        session = requests.Session()
+        session.headers = headers or cls.DEFAULT_HEADERS
+
         if data is not None and not isinstance(data, six.string_types):
             data = json.dumps(data)
-        session = requests.Session()
-        req = requests.Request(method or cls.DEFAULT_METHOD,
+
+        return cls._request(url, method, session, data, **kwargs)
+
+    @classmethod
+    def _request(cls, url, method, session, data, **kwargs):
+        """
+        A potentially recursive method which implements the standard behaviour for a REST client in response to various
+        status codes and situations.
+        """
+        resp = session.request(method,
                                url,
-                               headers=headers or cls.DEFAULT_HEADERS,
-                               data=data).prepare()
-        resp = session.send(req, **kwargs)
-        if resp.status_code in (200, 203):
+                               data=data,
+                               **kwargs)
+        if resp.status_code in cls.OK_CODES:
             # The server is returning data we should interpret as a HAL document
             return resp.text, url
-        elif resp.status_code in (301, 302, 307, 308):
+        elif resp.status_code in cls.REDIRECT_WITH_ORIGINAL_METHOD_CODES:
             # We should follow a Location header using the original method to find the document.  The absence of such a
             # header is an error
-            return cls.request(resp.headers['Location'],
-                            method=method or cls.DEFAULT_METHOD,
-                            headers=headers or cls.DEFAULT_HEADERS,
-                            data=data,
-                            **kwargs)
-        elif resp.status_code in (201, 303):
+            return cls._request(resp.headers['Location'],
+                                method=method,
+                                session=session,
+                                data=data,
+                                **kwargs)
+        elif resp.status_code in cls.REDIRECT_WITH_GET_CODES:
             # We should follow a Location header with a GET to find the document.  The absence of such a header is an
             # error
-            return cls.request(resp.headers['Location'],
-                            method='GET',
-                            headers=headers or cls.DEFAULT_HEADERS,
-                            **kwargs)
-        elif resp.status_code in (202, 204, 205):
-            # We should _try_ to follow a Location header with a GET to find the document, but there may not be such a
-            # header, and that is OK.
-            if resp.headers['Location']:
-                return cls.request(resp.headers['Location'],
+            return cls._request(resp.headers['Location'],
                                 method='GET',
-                                headers=headers or cls.DEFAULT_HEADERS,
+                                session=session,
+                                data=None,
                                 **kwargs)
+        elif resp.status_code in cls.MAYBE_REDIRECT_WITH_GET_CODES:
+            # We should _try_ to follow a Location header with a GET to find the document, but there may not be such a
+            # header, in which case return the body and url we have
+            if resp.headers['Location']:
+                return cls._request(resp.headers['Location'],
+                                    method='GET',
+                                    session=session,
+                                    data=None,
+                                    **kwargs)
             else:
                 return resp.text, url
         else:
+            # Let requests raise any errors as it usually would
             resp.raise_for_status()
         # Response wasn't an error, or a non-error we know how to deal with
         raise NotImplementedError('HALHttpClient._http() does not handle HTTP status code %s. Response headers were %s',
