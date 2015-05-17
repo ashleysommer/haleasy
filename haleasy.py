@@ -24,9 +24,6 @@ def listify(item_or_list):
 def make_preview_url(urlstring, host):
     """
     If the given URL has a base (scheme + host) then do nothing, otherwise use the host param to create a full url
-    :param urlstring:
-    :param host:
-    :return:
     """
     if not urlstring:
         # this is here to support anonymous resources - the full url for an anonymous resource is ''
@@ -48,11 +45,11 @@ class HALHttpClient(object):
     MAYBE_REDIRECT_WITH_GET_CODES = {202, 204, 205}
 
     @classmethod
-    def request(cls, url, method=None, headers=None, data=None, **kwargs):
+    def request(cls, url, method=None, headers=None, data=None, session=None, **kwargs):
         """
         Public facing request method that does initial setup and sanitisation:
         * checks and supplies defaults
-        * creates a session object to be used for this chain of requests.
+        * creates a session object to be used for this chain of requests, unless one is passed in.
         * if data is passed as an object instead of a string, JSONifies it
         * calls protected _request method, which may recurse and omits all the steps above
         """
@@ -60,8 +57,9 @@ class HALHttpClient(object):
         if method not in cls.SUPPORTED_METHODS:
             raise NotImplementedError('HTTP method %s is not implemented by the HALEasy client' % method)
 
-        session = requests.Session()
-        session.headers = headers or cls.DEFAULT_HEADERS
+        if not session:
+            session = requests.Session()
+            session.headers = headers or cls.DEFAULT_HEADERS
 
         if data is not None and not isinstance(data, six.string_types):
             data = json.dumps(data)

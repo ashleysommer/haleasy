@@ -37,7 +37,3 @@ class TestMakePreviewUrl(TestCase):
                            'foo/bar?b&%c=4'):
             self.assertEqual(make_preview_url(teststring, 'http://dummyhost.com'),
                              'http://dummyhost.com/{}'.format(teststring))
-
-class TestHALHttpClient(TestCase):
-    def test_invalid_methods_rejected(self):
-        self.assertRaises(NotImplementedError, HALHttpClient.request, 'dummy_test_host1234.local', method='ZZZ')

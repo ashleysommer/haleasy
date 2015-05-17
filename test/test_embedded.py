@@ -1,5 +1,5 @@
 from unittest import TestCase
-from haleasy import HALEasy, LinkNotFoundError
+from haleasy import HALEasy
 import json
 import responses
 
