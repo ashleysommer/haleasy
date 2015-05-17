@@ -1,5 +1,6 @@
 from unittest import TestCase
 from haleasy import HALHttpClient
+from requests import Session
 import json
 import responses
 
@@ -11,7 +12,7 @@ class TestHalHttpClient(TestCase):
         class TestHttpClient(HALHttpClient):
             @classmethod
             def _request(cls, url, method, session, data, **kwargs):
-                self.assertIsNotNone(session)
+                self.assertEqual(type(session), Session)
                 return None, None
         (body, url) = TestHttpClient.request('http://api.test_domain/api_root')
 
