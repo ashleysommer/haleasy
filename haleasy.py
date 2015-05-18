@@ -55,11 +55,11 @@ class HALHttpClient(object):
         """
         method = method or cls.DEFAULT_METHOD
         if method not in cls.SUPPORTED_METHODS:
-            raise NotImplementedError('HTTP method %s is not implemented by the HALEasy client' % method)
+            raise NotImplementedError('HTTP method %s is not implemented by this client' % method)
 
         if not session:
-            # The user hasn't given us a session to use, so create a new session with parameters filled in from
-            # those passed to us
+            # The user hasn't given us a session to use, so create a new session with headers and authentication
+            # taken from **kwargs or defaults
             session = requests.Session()
             for k, v in kwargs.get('headers', cls.DEFAULT_HEADERS).iteritems():
                 session.headers[k] = v  # setting the header dict directly stops the case-insensitivity working
