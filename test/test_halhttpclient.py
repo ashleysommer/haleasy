@@ -11,16 +11,19 @@ class TestHalHttpClientSession(TestCase):
     def test_if_no_session_passed_in_one_is_created(self):
         class TestHttpClient(HALHttpClient):
             @classmethod
-            def _request(cls, url, method, session, data, **kwargs):
+            def _request(cls, url, method, data, session, **kwargs):
                 return session
 
         default_session = TestHttpClient.request('http://api.test_domain/api_root')
         self.assertEqual(type(default_session), Session)
+        default_session_2 = TestHttpClient.request('http://api.test_domain/api_root')
+        self.assertEqual(type(default_session_2), Session)
+        self.assertNotEqual(default_session, default_session_2)
 
     def test_session_passed_in_is_used(self):
         class TestHttpClient(HALHttpClient):
             @classmethod
-            def _request(cls, url, method, session, data, **kwargs):
+            def _request(cls, url, method, data, session, **kwargs):
                 return session
 
         mysession = Session()
@@ -32,7 +35,7 @@ class TestHTTPAuth(TestCase):
     def test_basic_auth(self):
         class TestHttpClient(HALHttpClient):
             @classmethod
-            def _request(cls, url, method, session, data, **kwargs):
+            def _request(cls, url, method, data, session, **kwargs):
                 return session
 
         httpclientsession = TestHttpClient.request('http://api.test_domain/api_root', auth=('u', 'p'))
@@ -41,7 +44,7 @@ class TestHTTPAuth(TestCase):
     def test_basic_auth_with_session(self):
         class TestHttpClient(HALHttpClient):
             @classmethod
-            def _request(cls, url, method, session, data, **kwargs):
+            def _request(cls, url, method, data, session, **kwargs):
                 return session
 
         mysession = Session()
@@ -56,7 +59,7 @@ class TestHTTPAuth(TestCase):
         """
         class TestHttpClient(HALHttpClient):
             @classmethod
-            def _request(cls, url, method, session, data, **kwargs):
+            def _request(cls, url, method, data, session, **kwargs):
                 return session
 
         mysession = Session()

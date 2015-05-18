@@ -21,17 +21,17 @@ def listify(item_or_list):
         return [item_or_list]
 
 
-def make_preview_url(urlstring, host):
+def make_preview_url(url_string, host):
     """
     If the given URL has a base (scheme + host) then do nothing, otherwise use the host param to create a full url
     """
-    if not urlstring:
+    if not url_string:
         # this is here to support anonymous resources - the full url for an anonymous resource is ''
         return ''
-    if urlstring.startswith('http://'):
-        return urlstring
+    if url_string.startswith('http://'):
+        return url_string
     else:
-        return urlparse.urljoin(host, urlstring)
+        return urlparse.urljoin(host, url_string)
 
 
 class HALHttpClient(object):
@@ -45,7 +45,7 @@ class HALHttpClient(object):
     MAYBE_REDIRECT_WITH_GET_CODES = {202, 204, 205}
 
     @classmethod
-    def request(cls, url, method=None, headers=None, data=None, session=None, **kwargs):
+    def request(cls, url, method=None, data=None, session=None, **kwargs):
         """
         Public facing request method that does initial setup and sanitisation:
         * checks and supplies defaults
@@ -61,16 +61,16 @@ class HALHttpClient(object):
             # The user hasn't given us a session to use, so create a new session with parameters filled in from
             # those passed to us
             session = requests.Session()
-            session.headers = headers or cls.DEFAULT_HEADERS
+            session.headers = kwargs.get('headers', cls.DEFAULT_HEADERS)
             session.auth = kwargs.get('auth', None)
 
         if data is not None and not isinstance(data, six.string_types):
             data = json.dumps(data)
 
-        return cls._request(url, method, session, data, **kwargs)
+        return cls._request(url, method, data, session, **kwargs)
 
     @classmethod
-    def _request(cls, url, method, session, data, **kwargs):
+    def _request(cls, url, method, data, session, **kwargs):
         """
         A potentially recursive method which implements the standard behaviour for a REST client in response to various
         status codes and situations.
@@ -183,9 +183,9 @@ class HALEasy(object):
             if not hasattr(self, 'http_client_class'):
                 self.http_client_class = self.DEFAULT_HTTP_CLIENT_CLASS
 
-    def from_url(self, url, method=None, headers=None, data=None, session=None, http_client_class=None, **kwargs):
+    def from_url(self, url, method=None, data=None, http_client_class=None, **kwargs):
         self._maybe_set_http_client_class(http_client_class)
-        response = self.http_client_class.request(url, data=data, method=method, headers=headers, **kwargs)
+        response = self.http_client_class.request(url, method=method, data=data, **kwargs)
         self.from_response(response, http_client_class=http_client_class)
 
     def from_response(self, response, http_client_class=None):
