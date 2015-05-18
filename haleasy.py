@@ -58,8 +58,11 @@ class HALHttpClient(object):
             raise NotImplementedError('HTTP method %s is not implemented by the HALEasy client' % method)
 
         if not session:
+            # The user hasn't given us a session to use, so create a new session with parameters filled in from
+            # those passed to us
             session = requests.Session()
             session.headers = headers or cls.DEFAULT_HEADERS
+            session.auth = kwargs.get('auth', None)
 
         if data is not None and not isinstance(data, six.string_types):
             data = json.dumps(data)
@@ -78,7 +81,7 @@ class HALHttpClient(object):
                                **kwargs)
         if resp.status_code in cls.OK_CODES:
             # The server is returning data we should interpret as a HAL document
-            return resp.text, url
+            return resp
         elif resp.status_code in cls.REDIRECT_WITH_ORIGINAL_METHOD_CODES:
             # We should follow a Location header using the original method to find the document.  The absence of such a
             # header is an error
@@ -105,7 +108,7 @@ class HALHttpClient(object):
                                     data=None,
                                     **kwargs)
             else:
-                return resp.text, url
+                return resp
         else:
             # Let requests raise any errors as it usually would
             resp.raise_for_status()
@@ -168,14 +171,32 @@ class HALEasy(object):
         # If json_str is provided then we use that to build the document, otherwise we follow the url.  Note even when
         # providing a json_str you also need to provide a URL, because this is a HAL client, not a HAL document parser,
         # and without a URL it can't always know where to go next
-        if not http_client_class:
-            self.http_client_class = self.DEFAULT_HTTP_CLIENT_CLASS
+        self._maybe_set_http_client_class(http_client_class)
         if not json_str:
-            json_str, url = self.http_client_class.request(url, data=data, method=method, headers=headers, **kwargs)
-        self.doc = dougrain.Document.from_object(json.loads(json_str), base_uri=url)
+            self.from_url(url, method=method, headers=headers, data=data, **kwargs)
+        else:
+            self.from_json(url, json_str, is_preview=is_preview)
+            self.preview = preview
+
+    def _maybe_set_http_client_class(self, http_client_class):
+        if not http_client_class:
+            if not hasattr(self, 'http_client_class'):
+                self.http_client_class = self.DEFAULT_HTTP_CLIENT_CLASS
+
+    def from_url(self, url, method=None, headers=None, data=None, session=None, http_client_class=None, **kwargs):
+        self._maybe_set_http_client_class(http_client_class)
+        response = self.http_client_class.request(url, data=data, method=method, headers=headers, **kwargs)
+        self.from_response(response, http_client_class=http_client_class)
+
+    def from_response(self, response, http_client_class=None):
+        self._maybe_set_http_client_class(http_client_class)
+        self.from_json(response.url, response.text, is_preview=False)
+
+    def from_json(self, url, json_str, is_preview=None, http_client_class=None):
+        self._maybe_set_http_client_class(http_client_class)
         self.fetched_from = url
+        self.doc = dougrain.Document.from_object(json.loads(json_str), base_uri=url)
         self.is_preview = is_preview
-        self.preview = preview
         self._add_links()
         self._add_embedded_as_links()
 
@@ -274,8 +295,8 @@ class HALEasyLink(dougrain.link.Link):
             return self.preview
         else:
             url = self.url(**link_params)
-            body, url = http_client_class.request(url, method=method, headers=headers, data=data)
-            return self.hal_class(url, body, preview=self.preview)
+            response = http_client_class.request(url, method=method, headers=headers, data=data)
+            return self.hal_class(response.url, response.text, preview=self.preview)
 
     def __getitem__(self, item):
         return self.as_object()[item]
