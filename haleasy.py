@@ -134,23 +134,27 @@ class HALEasy(object):
     def _add_embedded_as_links(self):
         for rel in self.doc.embedded:
             for embedded_resource in listify(self.doc.embedded[rel]):
-                if 'self' in embedded_resource.links:
-                    has_self_link = True
-                    preview_url = make_preview_url(embedded_resource.url(), self.host)
-                    self_link_properties = embedded_resource.links['self'].as_object()
-                else:
-                    has_self_link = False
-                    preview_url = ''
-                    self_link_properties = {'href': ''}
-                preview = HALEasy(preview_url,
-                                  json_str=json.dumps(embedded_resource.as_object()),
-                                  is_preview=True)
                 direct_link_found = False
-                if has_self_link:
+                if 'self' in embedded_resource.links:
+                    preview = HALEasy(make_preview_url(embedded_resource.url(), self.host),
+                                      json_str=json.dumps(embedded_resource.as_object()),
+                                      is_preview=True)
                     for link in self.links(rel=rel, href=preview.doc.links['self'].href):
                         link.preview = preview
-                        direct_link_found = True
+                        direct_link_found = True  # there is an explicit link with the same URL as the embedded resource
+                else:
+                    # the 'anonymous embedded resource' pattern applies
+                    preview = HALEasy('',  # empty URL string indicates resource is anonymous
+                                      json_str=json.dumps(embedded_resource.as_object()),
+                                      is_preview=True)
+
                 if not direct_link_found:
+                    # the embedded resource is not linked to in the _links section of the parent document, so we will
+                    # make it accessible via our links() method by adding a new link
+                    if 'self' in embedded_resource.links:
+                        self_link_properties = embedded_resource.links['self'].as_object()
+                    else:
+                        self_link_properties = {'href': ''}
                     new_link = HALEasyLink(self_link_properties,
                                            self.http_client_class,
                                            base_uri=preview.host,
