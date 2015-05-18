@@ -84,21 +84,33 @@ class TestHaleasyEmbedded(TestCase):
 
 
     @responses.activate
-    def test_embedded_objects_exist(self):
+    def test_link_count_includes_embedded_and_explicit_links(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        expected_count = 5  # 1 self link, 1 direct link, 3 embedded resources
+        self.assertEqual(len(list(h.links())), expected_count)
+
+    @responses.activate
+    def test_links_have_preview_attributes(self):
         h = HALEasy('http://api.test_domain/api_root')
         self.assertTrue(h.link(rel='sample_hal_rel1').preview)
         self.assertTrue(h.link(rel='sample_hal_rel4').preview)
-
-    @responses.activate
-    def test_embedded_objects_with_same_rel_exist(self):
-        h = HALEasy('http://api.test_domain/api_root')
-        self.assertEqual(len(list(h.links(rel='sample_hal_rel2'))), 2)
 
     @responses.activate
     def test_embedded_object_has_preview_true(self):
         h = HALEasy('http://api.test_domain/api_root')
         h1 = h.link(rel="sample_hal_rel1").follow()
         self.assertTrue(h1.is_preview)  # h1 is an embedded resource
+
+    @responses.activate
+    def test_embedded_object_has_correct_attributes(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        h1 = h.link(rel="sample_hal_rel1").follow()
+        self.assertTrue(h1['a'] == 'b')  # h1 is an embedded resource
+
+    @responses.activate
+    def test_embedded_objects_with_same_rel_exist(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        self.assertEqual(len(list(h.links(rel='sample_hal_rel2'))), 2)
 
     @responses.activate
     def test_full_object_fetched_when_preview_lacks_property(self):
