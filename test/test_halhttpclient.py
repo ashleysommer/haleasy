@@ -4,6 +4,18 @@ from requests import Session
 from requests.auth import HTTPDigestAuth
 
 
+class TestHeaders(TestCase):
+    def test_default_headers(self):
+        class TestHttpClient(HALHttpClient):
+            DEFAULT_HEADERS = {'Content-Type': 'application/json'}
+            @classmethod
+            def _request(cls, url, method, data, session, **kwargs):
+                return session
+
+        session = TestHttpClient.request('any')
+        self.assertEqual(session.headers['content-type'], 'application/json')  # note the change of case
+
+
 class TestHalHttpClientSession(TestCase):
     def test_invalid_methods_rejected(self):
         self.assertRaises(NotImplementedError, HALHttpClient.request, 'dummy_test_host1234.local', method='ZZZ')

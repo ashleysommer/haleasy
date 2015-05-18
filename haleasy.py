@@ -61,7 +61,8 @@ class HALHttpClient(object):
             # The user hasn't given us a session to use, so create a new session with parameters filled in from
             # those passed to us
             session = requests.Session()
-            session.headers = kwargs.get('headers', cls.DEFAULT_HEADERS)
+            for k, v in kwargs.get('headers', cls.DEFAULT_HEADERS).iteritems():
+                session.headers[k] = v  # setting the header dict directly stops the case-insensitivity working
             session.auth = kwargs.get('auth', None)
 
         if data is not None and not isinstance(data, six.string_types):
@@ -162,7 +163,6 @@ class HALEasy(object):
                  url,
                  data=None,
                  method=None,
-                 headers=None,
                  json_str=None,
                  is_preview=False,
                  preview=None,
@@ -173,15 +173,14 @@ class HALEasy(object):
         # and without a URL it can't always know where to go next
         self._maybe_set_http_client_class(http_client_class)
         if not json_str:
-            self.from_url(url, method=method, headers=headers, data=data, **kwargs)
+            self.from_url(url, method=method, data=data, **kwargs)
         else:
             self.from_json(url, json_str, is_preview=is_preview)
             self.preview = preview
 
     def _maybe_set_http_client_class(self, http_client_class):
-        if not http_client_class:
-            if not hasattr(self, 'http_client_class'):
-                self.http_client_class = self.DEFAULT_HTTP_CLIENT_CLASS
+        if not hasattr(self, 'http_client_class'):
+            self.http_client_class = http_client_class or self.DEFAULT_HTTP_CLIENT_CLASS
 
     def from_url(self, url, method=None, data=None, http_client_class=None, **kwargs):
         self._maybe_set_http_client_class(http_client_class)
@@ -288,14 +287,14 @@ class HALEasyLink(dougrain.link.Link):
         o.update(self.as_object())
         return o
 
-    def follow(self, http_client_class=None, method=None, headers=None, data=None, **link_params):
+    def follow(self, http_client_class=None, method=None, data=None, **link_params):
         if not http_client_class:
             http_client_class = self.http_client_class
         if self.preview:
             return self.preview
         else:
             url = self.url(**link_params)
-            response = http_client_class.request(url, method=method, headers=headers, data=data)
+            response = http_client_class.request(url, method=method, data=data)
             return self.hal_class(response.url, response.text, preview=self.preview)
 
     def __getitem__(self, item):
