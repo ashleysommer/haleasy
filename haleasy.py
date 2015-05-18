@@ -61,7 +61,7 @@ class HALHttpClient(object):
             # The user hasn't given us a session to use, so create a new session with headers and authentication
             # taken from **kwargs or defaults
             session = requests.Session()
-            for k, v in kwargs.get('headers', cls.DEFAULT_HEADERS).iteritems():
+            for k, v in six.iteritems(kwargs.get('headers', cls.DEFAULT_HEADERS)):
                 session.headers[k] = v  # setting the header dict directly stops the case-insensitivity working
             session.auth = kwargs.get('auth', None)
 
