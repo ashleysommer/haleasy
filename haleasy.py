@@ -123,12 +123,13 @@ class HALEasyLink(dougrain.link.Link):
     A small wrapper around dougrain.link.Link which tracks base_uris, hal_classes and previews, as
     well as a .follow() method to create the next HAL doc
     """
-    def __init__(self, json_object, http_client_class, base_uri=None, rel=None, hal_class=None, preview=None):
+    HTTP_CLIENT_CLASS = HALHttpClient
+
+    def __init__(self, json_object, base_uri=None, rel=None, hal_class=None, preview=None):
         super(HALEasyLink, self).__init__(json_object, base_uri)
         self.base_uri = base_uri
         self.rel = rel
-        self.hal_class = hal_class
-        self.http_client_class = http_client_class
+        self._hal_class = hal_class
         self.preview = preview
 
     def as_object_with_rel(self):
@@ -136,44 +137,38 @@ class HALEasyLink(dougrain.link.Link):
         o.update(self.as_object())
         return o
 
-    def follow(self, http_client_class=None, method=None, data=None, **link_params):
-        if not http_client_class:
-            http_client_class = self.http_client_class
+    def follow(self, method=None, data=None, **link_params):
         if self.preview:
             return self.preview
         else:
             url = self.url(**link_params)
-            response = http_client_class.request(url, method=method, data=data)
-            return self.hal_class(response.url, response.text, preview=self.preview)
+            response = self.HTTP_CLIENT_CLASS.request(url, method=method, data=data)
+            return self._hal_class(response.url, response.text, preview=self.preview)
 
     def __getitem__(self, item):
         return self.as_object()[item]
 
-    def __repr__(self):
-        return str(self.as_object_with_rel())
-
 
 class HALEasy(object):
-    DEFAULT_HTTP_CLIENT_CLASS = HALHttpClient
-    DEFAULT_LINK_CLASS = HALEasyLink
+    HTTP_CLIENT_CLASS = HALHttpClient
+    LINK_CLASS = HALEasyLink
 
     def _add_links(self):
         self._link_list = []
         for rel, links in six.iteritems(self.doc.links):
             for link in listify(links):
-                self._link_list.append(self.DEFAULT_LINK_CLASS(link.as_object(),
-                                       self.http_client_class,
-                                       base_uri=self.host,
-                                       rel=rel,
-                                       hal_class=type(self)))
+                self._link_list.append(self.LINK_CLASS(link.as_object(),
+                                                       base_uri=self.host,
+                                                       rel=rel,
+                                                       hal_class=type(self)))
 
     def _add_embedded_as_links(self):
         for rel in self.doc.embedded:
             for embedded_resource in listify(self.doc.embedded[rel]):
                 # create a HALEasy object for each embedded resource
                 preview = type(self)(make_preview_url(embedded_resource.url(), self.host),
-                                  json_str=json.dumps(embedded_resource.as_object()),
-                                  is_preview=True)
+                                     json_str=json.dumps(embedded_resource.as_object()),
+                                     is_preview=True)
                 try:
                     direct_links = list(self.links(rel=rel, href=preview.doc.links['self'].href))
                     for link in direct_links:
@@ -190,12 +185,11 @@ class HALEasy(object):
                         self_link_properties = preview.link(rel='self').as_object()
                     except LinkNotFoundError:
                         self_link_properties = {'href': ''}
-                    new_link = self.DEFAULT_LINK_CLASS(self_link_properties,
-                                                       self.http_client_class,
-                                                       base_uri=preview.host,
-                                                       rel=rel,
-                                                       hal_class=type(self),
-                                                       preview=preview)
+                    new_link = self.LINK_CLASS(self_link_properties,
+                                               base_uri=preview.host,
+                                               rel=rel,
+                                               hal_class=type(self),
+                                               preview=preview)
                     self._link_list.append(new_link)
 
     def __init__(self,
@@ -219,7 +213,7 @@ class HALEasy(object):
 
     def _maybe_set_http_client_class(self, http_client_class):
         if not hasattr(self, 'http_client_class'):
-            self.http_client_class = http_client_class or self.DEFAULT_HTTP_CLIENT_CLASS
+            self.http_client_class = http_client_class or self.HTTP_CLIENT_CLASS
 
     def from_url(self, url, method=None, data=None, http_client_class=None, **kwargs):
         self._maybe_set_http_client_class(http_client_class)
@@ -279,9 +273,10 @@ class HALEasy(object):
         """
         if 'rel' in want_params:
             want_params['rel'] = self.doc.expand_curie(want_params['rel'])
+        links_found = []
         for link in self._link_list:
             if not want_params:
-                yield link
+                links_found.append(link)
             else:
                 has_params = link.as_object_with_rel()
                 for k, v in six.iteritems(want_params):
@@ -291,7 +286,8 @@ class HALEasy(object):
                     except KeyError:
                         break  # the key doesn't exist
                 else:  # this else belongs to the for loop - executed if all param values matched
-                    yield link
+                    links_found.append(link)
+        return links_found
 
     def link(self, **want_params):
         """
@@ -300,14 +296,9 @@ class HALEasy(object):
         link is found, to help avoid subtle bugs if the returned value isn't used immediately
         """
         try:
-            return six.next(self.links(**want_params))
-        except StopIteration:
+            return self.links(**want_params)[0]
+        except IndexError:
             raise LinkNotFoundError('no link matching %s found, document is %s' % (want_params, self))
 
     def rels(self):
         return self.doc.links.keys()
-
-    def __repr__(self):
-        return str(self.__dict__)
-
-

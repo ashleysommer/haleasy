@@ -53,6 +53,16 @@ class TestHTTPAuth(TestCase):
         httpclientsession = TestHttpClient.request('http://api.test_domain/api_root', auth=('u', 'p'))
         self.assertEqual(httpclientsession.auth, ('u', 'p'))
 
+    def test_digest_auth(self):
+        class TestHttpClient(HALHttpClient):
+            @classmethod
+            def _request(cls, url, method, data, session, **kwargs):
+                return session
+
+        authobj = HTTPDigestAuth('u', 'p')
+        httpclientsession = TestHttpClient.request('http://api.test_domain/api_root', auth=authobj)
+        self.assertEqual(httpclientsession.auth, authobj)
+
     def test_basic_auth_with_session(self):
         class TestHttpClient(HALHttpClient):
             @classmethod
