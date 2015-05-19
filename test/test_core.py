@@ -63,6 +63,8 @@ class TestHalEasyPropertiesAndLinks(TestCase):
         self.assertEqual(h.doc.url(), 'http://api.test_domain/api_root')
         self.assertFalse(h.is_preview)
         self.assertEqual(h['p1'], 1)
+        self.assertEqual(h.properties()['p1'], 1)
+        self.assertEqual(h.doc.properties['p1'], 1)
         self.assertRaises(AttributeError, getattr, h, 'nonexistentproperty')
 
     def test_properties_json_str(self):

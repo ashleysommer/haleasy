@@ -260,6 +260,9 @@ class HALEasy(object):
             else:
                 raise
 
+    def properties(self):
+        return self.doc.properties
+
     def links(self, **want_params):
         """
         Return an iterator over the links that match the given names and values in the want_params dict.  To get all
