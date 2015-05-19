@@ -30,6 +30,13 @@ Usage
      {u'href': u'/posts/latest', 'rel': u'http://haltalk.herokuapp.com/rels/latest-posts'},
      {u'href': u'/signup', 'rel': u'http://haltalk.herokuapp.com/rels/signup'}]
 
+    >>> h.rels()
+    [u'http://haltalk.herokuapp.com/rels/users',
+     u'self',
+     u'http://haltalk.herokuapp.com/rels/me',
+     u'http://haltalk.herokuapp.com/rels/latest-posts',
+     u'http://haltalk.herokuapp.com/rels/signup']
+
     >>> h.properties()
     {u'hint_1': u'You need an account to post stuff..',
      u'hint_2': u'Create one by POSTing via the ht:signup link..',

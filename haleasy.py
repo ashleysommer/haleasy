@@ -118,49 +118,84 @@ class HALHttpClient(object):
                                   (resp.status_code, resp.headers))
 
 
+class HALEasyLink(dougrain.link.Link):
+    """
+    A small wrapper around dougrain.link.Link which tracks base_uris, hal_classes and previews, as
+    well as a .follow() method to create the next HAL doc
+    """
+    def __init__(self, json_object, http_client_class, base_uri=None, rel=None, hal_class=None, preview=None):
+        super(HALEasyLink, self).__init__(json_object, base_uri)
+        self.base_uri = base_uri
+        self.rel = rel
+        self.hal_class = hal_class
+        self.http_client_class = http_client_class
+        self.preview = preview
+
+    def as_object_with_rel(self):
+        o = {'rel': self.rel}
+        o.update(self.as_object())
+        return o
+
+    def follow(self, http_client_class=None, method=None, data=None, **link_params):
+        if not http_client_class:
+            http_client_class = self.http_client_class
+        if self.preview:
+            return self.preview
+        else:
+            url = self.url(**link_params)
+            response = http_client_class.request(url, method=method, data=data)
+            return self.hal_class(response.url, response.text, preview=self.preview)
+
+    def __getitem__(self, item):
+        return self.as_object()[item]
+
+    def __repr__(self):
+        return str(self.as_object_with_rel())
+
+
 class HALEasy(object):
     DEFAULT_HTTP_CLIENT_CLASS = HALHttpClient
+    DEFAULT_LINK_CLASS = HALEasyLink
 
     def _add_links(self):
         self._link_list = []
         for rel, links in six.iteritems(self.doc.links):
             for link in listify(links):
-                self._link_list.append(HALEasyLink(link.as_object(),
-                                                   self.http_client_class,
-                                                   base_uri=self.host,
-                                                   rel=rel,
-                                                   hal_class=type(self)))
+                self._link_list.append(self.DEFAULT_LINK_CLASS(link.as_object(),
+                                       self.http_client_class,
+                                       base_uri=self.host,
+                                       rel=rel,
+                                       hal_class=type(self)))
 
     def _add_embedded_as_links(self):
         for rel in self.doc.embedded:
             for embedded_resource in listify(self.doc.embedded[rel]):
-                direct_link_found = False
-                if 'self' in embedded_resource.links:
-                    preview = HALEasy(make_preview_url(embedded_resource.url(), self.host),
-                                      json_str=json.dumps(embedded_resource.as_object()),
-                                      is_preview=True)
-                    for link in self.links(rel=rel, href=preview.doc.links['self'].href):
+                # create a HALEasy object for each embedded resource
+                preview = type(self)(make_preview_url(embedded_resource.url(), self.host),
+                                  json_str=json.dumps(embedded_resource.as_object()),
+                                  is_preview=True)
+                try:
+                    direct_links = list(self.links(rel=rel, href=preview.doc.links['self'].href))
+                    for link in direct_links:
                         link.preview = preview
-                        direct_link_found = True  # there is an explicit link with the same URL as the embedded resource
-                else:
-                    # the 'anonymous embedded resource' pattern applies
-                    preview = HALEasy('',  # empty URL string indicates resource is anonymous
-                                      json_str=json.dumps(embedded_resource.as_object()),
-                                      is_preview=True)
+                except (LinkNotFoundError, KeyError):
+                    direct_links = []
 
-                if not direct_link_found:
+                if not direct_links:
                     # the embedded resource is not linked to in the _links section of the parent document, so we will
-                    # make it accessible via our links() method by adding a new link
-                    if 'self' in embedded_resource.links:
-                        self_link_properties = embedded_resource.links['self'].as_object()
-                    else:
+                    # make it accessible via our links() method by adding a new link.  This code does not go inside
+                    # the exception handler above, because we may have an empty list of direct links without an
+                    # exception having been raised
+                    try:
+                        self_link_properties = preview.link(rel='self').as_object()
+                    except LinkNotFoundError:
                         self_link_properties = {'href': ''}
-                    new_link = HALEasyLink(self_link_properties,
-                                           self.http_client_class,
-                                           base_uri=preview.host,
-                                           rel=rel,
-                                           hal_class=type(self),
-                                           preview=preview)
+                    new_link = self.DEFAULT_LINK_CLASS(self_link_properties,
+                                                       self.http_client_class,
+                                                       base_uri=preview.host,
+                                                       rel=rel,
+                                                       hal_class=type(self),
+                                                       preview=preview)
                     self._link_list.append(new_link)
 
     def __init__(self,
@@ -269,40 +304,10 @@ class HALEasy(object):
         except StopIteration:
             raise LinkNotFoundError('no link matching %s found, document is %s' % (want_params, self))
 
+    def rels(self):
+        return self.doc.links.keys()
+
     def __repr__(self):
         return str(self.__dict__)
 
 
-class HALEasyLink(dougrain.link.Link):
-    """
-    A small wrapper around dougrain.link.Link which tracks base_uris, hal_classes and previews, as
-    well as a .follow() method to create the next HAL doc
-    """
-    def __init__(self, json_object, http_client_class, base_uri=None, rel=None, hal_class=None, preview=None):
-        super(HALEasyLink, self).__init__(json_object, base_uri)
-        self.base_uri = base_uri
-        self.rel = rel
-        self.hal_class = hal_class
-        self.http_client_class = http_client_class
-        self.preview = preview
-
-    def as_object_with_rel(self):
-        o = {'rel': self.rel}
-        o.update(self.as_object())
-        return o
-
-    def follow(self, http_client_class=None, method=None, data=None, **link_params):
-        if not http_client_class:
-            http_client_class = self.http_client_class
-        if self.preview:
-            return self.preview
-        else:
-            url = self.url(**link_params)
-            response = http_client_class.request(url, method=method, data=data)
-            return self.hal_class(response.url, response.text, preview=self.preview)
-
-    def __getitem__(self, item):
-        return self.as_object()[item]
-
-    def __repr__(self):
-        return str(self.as_object_with_rel())

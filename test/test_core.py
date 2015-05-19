@@ -120,6 +120,12 @@ class TestHalEasyPropertiesAndLinks(TestCase):
         l = h.link(name="thing3")
 
     @responses.activate
+    def test_list_all_rels(self):
+        h = HALEasy('http://api.test_domain/api_root')
+        rl = h.rels()
+        self.assertEqual(sorted(rl), sorted(['self', 'link1', 'ex:link2', 'other:link3', 'link4', 'other:link5']))
+
+    @responses.activate
     def test_link_variable_expansion(self):
         thing4json = json.dumps({
             "_links": {
