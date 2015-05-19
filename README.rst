@@ -25,7 +25,7 @@ Basic Usage
 -----------
 Create a HALEasy resource by fetching a URL:::
 
-    from haleasy import HALEasy
+    >>> from haleasy import HALEasy
     >>> h = HALEasy('http://haltalk.herokuapp.com/')
 
 Get a dictionary of the resource properties:::

@@ -36,7 +36,7 @@ def make_preview_url(url_string, host):
 
 class HALHttpClient(object):
     DEFAULT_HEADERS = {'Accept': 'application/json',
-                       'Content-Type': 'application/hal+json'}
+                       'Content-Type': 'application/json'}
     DEFAULT_METHOD = 'GET'
     SUPPORTED_METHODS = ('GET', 'POST', 'PUT', 'DELETE')
     OK_CODES = {200, 203}
@@ -147,6 +147,9 @@ class HALEasyLink(dougrain.link.Link):
 
     def __getitem__(self, item):
         return self.as_object()[item]
+
+    def __repr__(self):
+        return str(self.as_object_with_rel())
 
 
 class HALEasy(object):
