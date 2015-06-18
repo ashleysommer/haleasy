@@ -173,17 +173,19 @@ class HALEasy(object):
                                      json_str=json.dumps(embedded_resource.as_object()),
                                      is_preview=True)
                 try:
-                    direct_links = list(self.links(rel=rel, href=preview.doc.links['self'].href))
-                    for link in direct_links:
-                        link.preview = preview
-                except (LinkNotFoundError, KeyError):
+                    # if there are links to the embedded resource in the parent document, set the .preview attribute
+                    # of those links to the embedded resource
                     direct_links = []
-
-                if not direct_links:
+                    for link in self.links(rel=rel, href=preview.doc.links['self'].href):
+                        link.preview = preview
+                        direct_links.append(link)
+                    if not direct_links:
+                        raise LinkNotFoundError
+                except (LinkNotFoundError, KeyError):
                     # the embedded resource is not linked to in the _links section of the parent document, so we will
-                    # make it accessible via our links() method by adding a new link.  This code does not go inside
-                    # the exception handler above, because we may have an empty list of direct links without an
-                    # exception having been raised
+                    # make it accessible via our links() method by adding a new link using the embedded resource's
+                    # self link.  If the embedded resource does not have a self link we will create an 'anonymous'
+                    # resource with a self link href of ''
                     try:
                         self_link_properties = preview.link(rel='self').as_object()
                     except LinkNotFoundError:
