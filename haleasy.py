@@ -143,7 +143,7 @@ class HALEasyLink(dougrain.link.Link):
         else:
             url = self.url(**link_params)
             response = self.HTTP_CLIENT_CLASS.request(url, method=method, data=data)
-            return self._hal_class(response.url, response.text, preview=self.preview)
+            return self._hal_class(response.url, json_str=response.text, preview=self.preview)
 
     def __getitem__(self, item):
         return self.as_object()[item]
